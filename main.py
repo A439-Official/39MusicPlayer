@@ -244,8 +244,8 @@ def main():
 
     # variables
     STATES["screen_size"] = _screen.get_size()
-    STATES["songs_path"] = f"{os.environ.get('APPDATA')}\\CFVI\\39MusicPlayer\\song"
-    STATES["settings_path"] = f"{os.environ.get('APPDATA')}\\CFVI\\39MusicPlayer\\settings.json"
+    STATES["songs_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\39MusicPlayer\\song"
+    STATES["settings_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\39MusicPlayer\\settings.json"
     STATES["song_list"] = {}
     STATES["download_status"] = {}
     STATES["download_queue"] = []
@@ -322,7 +322,7 @@ def main():
         imgui.push_font(imgui_font)
         imgui.set_next_window_position(_screen.get_height(), 0)
         imgui.set_next_window_size(_screen.get_width() - _screen.get_height(), _screen.get_height())
-        imgui.begin("Songs", True, imgui.WINDOW_NO_TITLE_BAR | imgui.WINDOW_NO_RESIZE | imgui.WINDOW_NO_MOVE)
+        imgui.begin("Songs", True, imgui.WINDOW_NO_TITLE_BAR | imgui.WINDOW_NO_RESIZE | imgui.WINDOW_NO_MOVE | imgui.WINDOW_NO_SAVED_SETTINGS)
         if imgui.begin_tab_bar("Pages"):
             if imgui.begin_tab_item(lang("Play")).selected:
                 imgui.text(STATES["song_list"].get(STATES["now_playing"], {"name": ""})["name"])

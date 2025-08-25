@@ -22,9 +22,9 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-NAME = "39 Music Player"
+NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.1.0"
+VERSION = "0.1.2"
 STATES = {}
 LOCK = threading.Lock()
 LANGUAGES = json.load(open(resource_path("./resources/languages.json"), "r", encoding="utf-8"))
@@ -224,7 +224,7 @@ def start_search():
 
 def add_to_download_queue(song_id):
     with LOCK:
-        if song_id not in STATES["download_queue"] and song_id not in STATES["song_list"]:
+        if song_id not in STATES["download_queue"]:
             STATES["download_queue"].append(song_id)
             STATES["download_status"][song_id] = "Queued"
             download_thread = DownloadThread(song_id)
@@ -294,19 +294,22 @@ def main():
         pygame.draw.lines(screen, (0, 0, 0), False, poses, 2)
         pygame.draw.aalines(screen, (255, 255, 255), False, poses, 1)
 
-        if STATES.get("now_playing") and STATES["song_list"].get(STATES["now_playing"], {}).get("lyrics"):
-            now_lyric = len(STATES["song_list"][STATES["now_playing"]]["lyrics"]) - 2
+        if pygame.mixer.music.get_pos() > 0 and STATES.get("now_playing") and STATES["song_list"].get(STATES["now_playing"], {}).get("lyrics"):
+            now_lyric = 0
             last_time = 0
-            for i in range(len(STATES["song_list"][STATES["now_playing"]]["lyrics"])):
-                line = STATES["song_list"][STATES["now_playing"]]["lyrics"][i]
-                time = line["time"]
-                if time > pygame.mixer.music.get_pos() / 1000:
-                    now_lyric = i - 2 + ((pygame.mixer.music.get_pos() / 1000 - last_time) / (time - last_time + 1e-6)) ** 0.1
-                    break
-                last_time = time
+            for i in range(len(STATES["song_list"][STATES["now_playing"]]["lyrics"]) + 1):
+                if i < len(STATES["song_list"][STATES["now_playing"]]["lyrics"]):
+                    line = STATES["song_list"][STATES["now_playing"]]["lyrics"][i]
+                    time = line["time"]
+                    if time > pygame.mixer.music.get_pos() / 1000:
+                        now_lyric = i - 2 + ((pygame.mixer.music.get_pos() / 1000 - last_time) / (time - last_time + 1e-6)) ** 0.1
+                        break
+                    last_time = time
+                else:
+                    now_lyric = i - 2 + ((min(STATES["song_list"][STATES["now_playing"]]["lyrics"][-1]["time"] + 4.39, pygame.mixer.music.get_pos() / 1000) - last_time) / (min(STATES["song_list"][STATES["now_playing"]]["lyrics"][-1]["time"] + 4.39, STATES["song_list"][STATES["now_playing"]]["data"]["time"] / 1000) - last_time + 1e-6)) ** 0.1
             for i in range(len(STATES["song_list"][STATES["now_playing"]]["lyrics"])):
                 if abs(i - now_lyric) < 1.5:
-                    line = STATES["song_list"][STATES["now_playing"]]["lyrics"][i]
+                    line = (STATES["song_list"][STATES["now_playing"]]["lyrics"])[i]
                     time = line["time"]
                     text = CFVI.draw.text(font, line["text"], (255, 255, 255), min_width=screen.get_height())
                     text_burr = CFVI.draw.text(font, line["text"], (0, 0, 0), min_width=screen.get_height())
@@ -360,12 +363,12 @@ def main():
                 imgui.end_child()
                 imgui.end_tab_item()
             if imgui.begin_tab_item(lang("Download")).selected:
-                changed, STATES["search_text"] = imgui.input_text("##SearchText", STATES.get("search_text", ""))
+                _, STATES["search_text"] = imgui.input_text("##SearchText", STATES.get("search_text", ""))
                 imgui.same_line()
                 if imgui.button(lang("Search")):
                     start_search()
                 imgui.same_line()
-                imgui.text(STATES.get("search_status", "Idle"))
+                imgui.text(lang(STATES.get("search_status", "Idle")))
                 imgui.separator()
                 imgui.begin_child("##SearchResultScroll", 0, 0, True)
                 if STATES.get("search_results"):
@@ -384,13 +387,14 @@ def main():
                         imgui.table_set_column_index(2)
                         song_id = str(song.get("id", ""))
                         status = STATES["download_status"].get(song_id, "")
-                        if song_id in STATES["song_list"]:
-                            imgui.text(lang("Downloaded"))
-                        elif status:
+                        if status:
                             imgui.text(status)
                         else:
                             if imgui.button(lang("Download") + f"##{song_id}"):
                                 add_to_download_queue(song_id)
+                            if song_id in STATES["song_list"]:
+                                imgui.same_line()
+                                imgui.text(lang("Downloaded"))
                     imgui.end_table()
                 imgui.end_child()
                 imgui.end_tab_item()

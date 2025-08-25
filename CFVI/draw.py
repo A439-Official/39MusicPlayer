@@ -33,7 +33,7 @@ def ring(surface, center, radius, width, color=(255, 255, 255)):
     surface.blit(temp_surface, (center[0] - radius, center[1] - radius))
 
 
-def text(font, text, color, align=0.5, min_width=0):
+def text(font: pygame.font.Font, text, color, align=0.5, min_width=0):
     """
     渲染文本，支持自动换行和文本对齐
 
@@ -47,6 +47,7 @@ def text(font, text, color, align=0.5, min_width=0):
     返回:
     pygame.Surface: 渲染后的文本表面
     """
+
     # 处理字体参数
     if isinstance(font, str):
         font = pygame.font.SysFont(font, 24)

@@ -24,7 +24,7 @@ def resource_path(relative_path):
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.1.2"
+VERSION = "0.2.0"
 STATES = {}
 LOCK = threading.Lock()
 LANGUAGES = json.load(open(resource_path("./resources/languages.json"), "r", encoding="utf-8"))
@@ -47,11 +47,10 @@ class DownloadThread(threading.Thread):
         try:
             path = f"{STATES['songs_path']}\\{self.song_id}"
             song_info = CFVI.music.api.info(self.song_id)
-            if song_info["privilege"]["pl"] < 0:
-                with LOCK:
-                    STATES["download_status"][self.song_id] = "No permission"
-                return
             song = CFVI.music.api.song(self.song_id)
+            if song_info["privilege"]["pl"] <= 0:
+                for i in CFVI.music.api.song2(self.song_id):
+                    song[i] = CFVI.music.api.song2(self.song_id)[i]
             song_data = requests.get(song["url"]).content
             song.pop("url")
             pic_url = song_info["pic"]
@@ -69,7 +68,7 @@ class DownloadThread(threading.Thread):
                 os.makedirs(path)
             with open(f"{path}\\info.json", "w", encoding="utf-8") as f:
                 f.write(json.dumps(song_info))
-            with open(f"{path}\\song.mp3", "wb") as f:
+            with open(f"{path}\\song.{song_info['data']['type']}", "wb") as f:
                 f.write(song_data)
             with open(f"{path}\\pic.jpg", "wb") as f:
                 f.write(pic_data)
@@ -134,7 +133,7 @@ def play_song(song_id):
     STATES["now_playing"] = song_id
     STATES["song_bg"] = None
     STATES["song_mv"] = None
-    song_path = f"{STATES['songs_path']}\\{song_id}\\song.mp3"
+    song_path = f"{STATES['songs_path']}\\{song_id}\\song.{STATES['song_list'][song_id]['data']['type']}"
     if not pygame.mixer.get_init():
         pygame.mixer.init()
     try:
@@ -388,6 +387,8 @@ def main():
                         song_id = str(song.get("id", ""))
                         status = STATES["download_status"].get(song_id, "")
                         if status:
+                            if status.startswith("Error: ") and imgui.button(lang("Retry") + f"##{song_id}"):
+                                add_to_download_queue(song_id)
                             imgui.text(status)
                         else:
                             if imgui.button(lang("Download") + f"##{song_id}"):

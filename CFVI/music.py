@@ -1,5 +1,7 @@
 import requests
 import json
+import urllib.parse
+import pathlib
 
 
 class api:
@@ -104,6 +106,20 @@ class api:
         result["url"] = response["data"]["url"]
         result["size"] = response["data"]["size"]
         result["st"] = response["data"]["st"]
+        return result
+
+    def song2(id):
+        url = f"https://api.cenguigui.cn/api/netease/music_v1.php?id={id}&type=json&level=lossless"
+        response: dict = requests.get(url).json()
+        if response["code"] != 200:
+            print(response)
+            return None
+        result = {}
+        result["id"] = id
+        result["url"] = response["data"]["url"]
+        result["size"] = response["data"]["size"]
+        result["time"] = (int(response["data"]["duration"].split(":")[0]) * 60 + float(response["data"]["duration"].split(":")[1])) * 1000
+        result["type"] = pathlib.Path(urllib.parse.urlparse(result["url"]).path).suffix
         return result
 
 

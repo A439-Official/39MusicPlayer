@@ -223,6 +223,8 @@ def start_search():
 
 def add_to_download_queue(song_id):
     with LOCK:
+        if song_id in STATES["download_queue"] and STATES["download_status"][song_id].startswith("Error: "):
+            STATES["download_queue"].remove(song_id)
         if song_id not in STATES["download_queue"]:
             STATES["download_queue"].append(song_id)
             STATES["download_status"][song_id] = "Queued"

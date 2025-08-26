@@ -1,5 +1,5 @@
 {
-    "zh-CN": {
+    "zh-cn": {
         "Download": "下载",
         "Songs": "歌曲",
         "Albums": "专辑",
@@ -28,6 +28,8 @@
         "Playing": "播放中",
         "Paused": "已暂停",
         "Searching": "搜索中",
-        "Action": "操作"
+        "Action": "操作",
+        "Theme": "主题",
+        "Play MV": "播放MV"
     }
 }

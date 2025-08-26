@@ -24,15 +24,21 @@ def resource_path(relative_path):
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.2.1"
+VERSION = "0.3.0"
 STATES = {}
 LOCK = threading.Lock()
 LANGUAGES = json.load(open(resource_path("./resources/languages.json"), "r", encoding="utf-8"))
+THEMES = json.load(open(resource_path("./resources/themes.json"), "r", encoding="utf-8"))
 
 
 def lang(text):
     lang = (["en"] + [lang for lang in LANGUAGES])[STATES["settings"].get("language", 0)]
     return LANGUAGES[lang].get(text, text) if lang in LANGUAGES else text
+
+
+def theme(ket):
+    theme = (["default"] + [theme for theme in THEMES])[STATES["settings"].get("theme", 0)]
+    return THEMES[theme].get(ket, None) if theme in THEMES else None
 
 
 class DownloadThread(threading.Thread):
@@ -204,12 +210,12 @@ def play_previous_song():
 
 
 def cut(lst, i):
-    start = max(0, i - 512)
-    end = min(len(lst), i + 512)
-    result = numpy.zeros((1024, lst[0].shape[0]))
-    valid_start = max(0, 512 - i)
-    valid_end = min(1024, 512 + (len(lst) - i))
-    result[valid_start:valid_end] = lst[start:end]
+    result = []
+    for j in range(i - 512, i + 512):
+        if j >= 0 and j < len(lst):
+            result.append(lst[j])
+        else:
+            result.append(numpy.zeros(lst[0].shape))
     return result
 
 
@@ -345,14 +351,33 @@ def main():
 
         # imgui
         imgui.new_frame()
+        pushed_colors = 0
+        theme_index = STATES["settings"].get("theme", 0)
+        if theme_index > 0:
+            theme_name = list(THEMES.keys())[theme_index - 1]
+            theme_colors = THEMES[theme_name]
+            for item_name, color_values in theme_colors.items():
+                item_value = [value / 255 for value in color_values]
+                eval(f"imgui.push_style_color(imgui.{item_name}, *{item_value})")
+                pushed_colors += 1
         imgui.push_font(imgui_font)
         imgui.set_next_window_position(_screen.get_height(), 0)
         imgui.set_next_window_size(_screen.get_width() - _screen.get_height(), _screen.get_height())
         imgui.begin("Songs", True, imgui.WINDOW_NO_TITLE_BAR | imgui.WINDOW_NO_RESIZE | imgui.WINDOW_NO_MOVE | imgui.WINDOW_NO_SAVED_SETTINGS)
         if imgui.begin_tab_bar("Pages"):
             if imgui.begin_tab_item(lang("Play")).selected:
-                imgui.text(STATES["song_list"].get(STATES["now_playing"], {"name": ""})["name"])
+                imgui.text(f"{STATES["song_list"].get(STATES["now_playing"], {"name": ""})["name"]}")
+                imgui.same_line()
+                imgui.text_colored(f"{STATES["song_list"].get(STATES["now_playing"], {"album": ""})["album"]}", 0.5, 0.5, 0.5)
                 imgui.progress_bar(pygame.mixer.music.get_pos() / STATES["song_list"].get(STATES["now_playing"], {}).get("data", "")["time"] if STATES["now_playing"] else 0, (imgui.get_column_width(), 8))
+                current_time = f"{int(pygame.mixer.music.get_pos() / 60000)}:{int(numpy.mod(max(pygame.mixer.music.get_pos() / 1000, 0), 60)):02d}"
+                total_time = f"{int(STATES['song_list'].get(STATES['now_playing'], {'data': {'time': 0}}).get('data', {'time': 0})['time'] / 60000)}:{int(numpy.mod(max(STATES['song_list'].get(STATES['now_playing'], {'data': {'time': 0}}).get('data', {'time': 0})['time'] / 1000, 0), 60)):02d}"
+                available_width = imgui.get_content_region_available().x
+                imgui.text(current_time)
+                imgui.same_line()
+                imgui.set_cursor_pos_x(available_width - imgui.calc_text_size(total_time).x)
+                imgui.text(total_time)
+                imgui.separator()
                 if imgui.button(lang("Previous"), 128, 32):
                     play_previous_song()
                 imgui.same_line()
@@ -370,7 +395,7 @@ def main():
                     play_next_song()
 
                 imgui.begin_child("##SongListScroll", 0, 0, True)
-                imgui.begin_table("##SongList", 2, imgui.TABLE_ROW_BACKGROUND | imgui.TABLE_RESIZABLE)
+                imgui.begin_table("##SongList", 2, imgui.TABLE_ROW_BACKGROUND)
                 imgui.table_setup_column(lang("Title"))
                 imgui.table_setup_column(lang("Artist"))
                 imgui.table_headers_row()
@@ -431,12 +456,16 @@ def main():
             if imgui.begin_tab_item(lang("Settings")).selected:
                 _, lang_index = imgui.combo(lang("Language"), STATES["settings"].get("language", 0), ["en"] + [lang for lang in LANGUAGES])
                 STATES["settings"]["language"] = lang_index
+                _, theme_index = imgui.combo(lang("Theme"), STATES["settings"].get("theme", 0), ["default"] + [theme for theme in THEMES])
+                STATES["settings"]["theme"] = theme_index
                 _, play_mv = imgui.checkbox(lang("Play MV"), STATES["settings"].get("play_mv", False))
                 STATES["settings"]["play_mv"] = play_mv
                 imgui.end_tab_item()
             imgui.end_tab_bar()
         imgui.end()
         imgui.pop_font()
+        if pushed_colors > 0:
+            imgui.pop_style_color(pushed_colors)
 
         # RenderLoop
         render_loop(_screen, screen, texture_id, impl)

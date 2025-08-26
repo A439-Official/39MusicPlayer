@@ -119,7 +119,7 @@ class api:
         result["url"] = response["data"]["url"]
         result["size"] = response["data"]["size"]
         result["time"] = (int(response["data"]["duration"].split(":")[0]) * 60 + float(response["data"]["duration"].split(":")[1])) * 1000
-        result["type"] = pathlib.Path(urllib.parse.urlparse(result["url"]).path).suffix
+        result["type"] = pathlib.Path(urllib.parse.urlparse(result["url"]).path).suffix[1:]
         return result
 
 

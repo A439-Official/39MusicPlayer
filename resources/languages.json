@@ -30,6 +30,14 @@
         "Searching": "搜索中",
         "Action": "操作",
         "Theme": "主题",
-        "Play MV": "播放MV"
+        "Play MV": "播放MV",
+        "Delete": "删除",
+        "Download path": "下载路径:",
+        "Browse": "浏览",
+        "Page": "页",
+        "Previous page": "上一页",
+        "Next page": "下一页",
+        "Search count": "搜索结果数",
+        "Lyrics": "歌词"
     }
 }

@@ -12,6 +12,13 @@ import soundfile
 import numpy
 import sys
 import moviepy
+import tkinter as tk
+from tkinter import filedialog
+
+
+NAME = "39MusicPlayer"
+CREATOR = "A439"
+VERSION = "0.4.0"
 
 
 def resource_path(relative_path):
@@ -22,9 +29,6 @@ def resource_path(relative_path):
     return os.path.join(base_path, relative_path)
 
 
-NAME = "39MusicPlayer"
-CREATOR = "A439"
-VERSION = "0.3.0"
 STATES = {}
 LOCK = threading.Lock()
 LANGUAGES = json.load(open(resource_path("./resources/languages.json"), "r", encoding="utf-8"))
@@ -56,8 +60,14 @@ class DownloadThread(threading.Thread):
             print(f"[{self.song_id}][0/2]Fetching song info")
             song = CFVI.music.api.song(self.song_id)
             if song_info["privilege"]["pl"] <= 0:
-                for i in CFVI.music.api.song2(self.song_id):
-                    song[i] = CFVI.music.api.song2(self.song_id)[i]
+                if False:
+                    for i in CFVI.music.api.song2(self.song_id):
+                        song[i] = CFVI.music.api.song2(self.song_id)[i]
+                else:
+                    print(f"[{self.song_id}][0/2]Song is not available")
+                    with LOCK:
+                        STATES["download_status"][self.song_id] = "Error: No privilege!"
+                    return
             song_data = requests.get(song["url"]).content
             print(f"[{self.song_id}][1/2]Downloaded song")
             song.pop("url")
@@ -143,11 +153,21 @@ def get_song_sort_key(song_info):
 def refresh_song_list():
     if not os.path.exists(STATES["songs_path"]):
         os.makedirs(STATES["songs_path"])
+    STATES["song_list"] = {}
+    STATES["sorted_song_ids"] = []
+    STATES["now_playing"] = None
+    STATES["is_playing"] = False
+    try:
+        pygame.mixer.music.stop()
+        pygame.mixer.music.unload()
+    except:
+        pass
+    if not os.path.exists(STATES["songs_path"]):
+        os.makedirs(STATES["songs_path"])
     for song_id in os.listdir(STATES["songs_path"]):
         info_path = f"{STATES['songs_path']}\\{song_id}\\info.json"
         if os.path.exists(info_path):
             STATES["song_list"][song_id] = json.loads(open(info_path, "r", encoding="utf-8").read())
-
     # 对歌曲列表按照作者-专辑-歌名排序
     STATES["sorted_song_ids"] = sorted(STATES["song_list"].keys(), key=lambda song_id: get_song_sort_key(STATES["song_list"][song_id]))
 
@@ -192,7 +212,6 @@ def pause_song():
 def play_next_song():
     if not STATES.get("sorted_song_ids"):
         return
-
     if STATES["now_playing"] in STATES["sorted_song_ids"]:
         current_index = STATES["sorted_song_ids"].index(STATES["now_playing"])
         next_index = (current_index + 1) % len(STATES["sorted_song_ids"])
@@ -202,11 +221,38 @@ def play_next_song():
 def play_previous_song():
     if not STATES.get("sorted_song_ids"):
         return
-
     if STATES["now_playing"] in STATES["sorted_song_ids"]:
         current_index = STATES["sorted_song_ids"].index(STATES["now_playing"])
         previous_index = (current_index - 1) % len(STATES["sorted_song_ids"])
         play_song(STATES["sorted_song_ids"][previous_index])
+
+
+def delete_song(song_id):
+    try:
+        if STATES.get("now_playing") == song_id:
+            pygame.mixer.music.stop()
+            pygame.mixer.music.unload()
+            STATES["now_playing"] = None
+            STATES["is_playing"] = False
+        song_path = f"{STATES['songs_path']}\\{song_id}"
+        if os.path.exists(song_path):
+            import shutil
+
+            shutil.rmtree(song_path)
+        with LOCK:
+            if song_id in STATES["song_list"]:
+                del STATES["song_list"][song_id]
+            if song_id in STATES["sorted_song_ids"]:
+                STATES["sorted_song_ids"].remove(song_id)
+            if song_id in STATES["download_status"]:
+                del STATES["download_status"][song_id]
+            if song_id in STATES["download_queue"]:
+                STATES["download_queue"].remove(song_id)
+
+        print(f"Deleted song: {song_id}")
+
+    except Exception as e:
+        print(f"Failed to delete song {song_id}: {e}")
 
 
 def cut(lst, i):
@@ -224,19 +270,21 @@ def sigmoid(x):
 
 
 class SearchThread(threading.Thread):
-    def __init__(self, search_text):
+    def __init__(self, search_text, page=0):
         super().__init__()
         self.search_text = search_text
+        self.page = page
         self.daemon = True
 
     def run(self):
         try:
             with LOCK:
                 STATES["search_status"] = "Searching"
-            search_results = CFVI.music.api.search(self.search_text)
+            search_results = CFVI.music.api.search(self.search_text, limit=STATES.get("search_count", 30), page=self.page)
             with LOCK:
                 STATES["search_results"] = search_results
                 STATES["search_status"] = "Completed"
+                STATES["search_current_page"] = self.page
         except Exception as e:
             print(f"Failed to search: {e}")
             with LOCK:
@@ -244,11 +292,11 @@ class SearchThread(threading.Thread):
             print(f"Failed to search: {e}")
 
 
-def start_search():
+def start_search(page=0):
     if STATES.get("search_text", "").strip():
         STATES["search_status"] = "Searching"
         STATES["search_results"] = []
-        search_thread = SearchThread(STATES["search_text"])
+        search_thread = SearchThread(STATES["search_text"], page)
         search_thread.start()
 
 
@@ -276,10 +324,10 @@ def main():
 
     # variables
     STATES["screen_size"] = _screen.get_size()
-    STATES["songs_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\39MusicPlayer\\song"
-    STATES["settings_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\39MusicPlayer\\settings.json"
+    STATES["songs_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\song"
+    STATES["settings_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\settings.json"
     STATES["song_list"] = {}
-    STATES["sorted_song_ids"] = []  # 新增：排序后的歌曲ID列表
+    STATES["sorted_song_ids"] = []
     STATES["download_status"] = {}
     STATES["download_queue"] = []
     STATES["now_playing"] = None
@@ -287,7 +335,11 @@ def main():
     STATES["search_text"] = ""
     STATES["search_results"] = []
     STATES["search_status"] = "Idle"
+    STATES["search_current_page"] = 0
     STATES["settings"] = json.loads(open(STATES["settings_path"], "r", encoding="utf-8").read()) if os.path.exists(STATES["settings_path"]) else {}
+    if "download_path" not in STATES["settings"]:
+        STATES["settings"]["download_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\song"
+    STATES["songs_path"] = STATES["settings"]["download_path"]
     refresh_song_list()
 
     # resources
@@ -300,6 +352,10 @@ def main():
 
             impl.process_event(event)
 
+        pygame.mixer.music.set_volume(STATES["settings"].get("volume", 0.5))
+        if STATES.get("now_playing") and pygame.mixer.music.get_pos() < 0:
+            play_song(STATES["sorted_song_ids"][numpy.random.randint(0, len(STATES["sorted_song_ids"]))])
+
         screen.fill((0, 0, 0, 0))
         if STATES.get("song_bg"):
             screen.blit(STATES["song_bg"], (0, 0))
@@ -311,6 +367,7 @@ def main():
             for i in range(screen.get_height()) if virbo > 0.001 else []:
                 if 1 + numpy.sin(numpy.tan(i**3 * STATES["song_data_index"])) > 0.25:
                     screen.blit(screen, (int((numpy.sin(numpy.tan(i**2 * STATES["song_data_index"]))) * virbo * screen.get_height() * 4.39), i), (0, i, screen.get_height(), 1))
+        screen.fill((0, 0, 0), (screen.get_height(), 0, screen.get_width() - screen.get_height(), screen.get_height()))
         if STATES.get("song_mv"):
             frame = pygame.surfarray.make_surface(STATES["song_mv"].get_frame(pygame.mixer.music.get_pos() / 1000).swapaxes(0, 1))
             frame = pygame.transform.scale_by(frame, screen.get_height() / frame.get_width())
@@ -327,7 +384,7 @@ def main():
         pygame.draw.lines(screen, (0, 0, 0), False, poses, 2)
         pygame.draw.aalines(screen, (255, 255, 255), False, poses, 1)
 
-        if pygame.mixer.music.get_pos() > 0 and STATES.get("now_playing") and STATES["song_list"].get(STATES["now_playing"], {}).get("lyrics"):
+        if STATES["settings"].get("show_lyrics", True) and pygame.mixer.music.get_pos() > 0 and STATES.get("now_playing") and STATES["song_list"].get(STATES["now_playing"], {}).get("lyrics"):
             now_lyric = 0
             last_time = 0
             for i in range(len(STATES["song_list"][STATES["now_playing"]]["lyrics"]) + 1):
@@ -354,7 +411,7 @@ def main():
         pushed_colors = 0
         theme_index = STATES["settings"].get("theme", 0)
         if theme_index > 0:
-            theme_name = list(THEMES.keys())[theme_index - 1]
+            theme_name = list(THEMES.keys())[min(theme_index - 1, len(THEMES) - 1)]
             theme_colors = THEMES[theme_name]
             for item_name, color_values in theme_colors.items():
                 item_value = [value / 255 for value in color_values]
@@ -388,22 +445,23 @@ def main():
                     if imgui.button(lang("Play"), 128, 32):
                         if STATES["now_playing"]:
                             pause_song()
-                        elif STATES["sorted_song_ids"]:  # 修改：使用排序后的列表
+                        elif STATES["sorted_song_ids"]:
                             play_song(STATES["sorted_song_ids"][0])
                 imgui.same_line()
                 if imgui.button(lang("Next"), 128, 32):
                     play_next_song()
-
                 imgui.begin_child("##SongListScroll", 0, 0, True)
-                imgui.begin_table("##SongList", 2, imgui.TABLE_ROW_BACKGROUND)
+                imgui.begin_table("##SongList", 3, imgui.TABLE_ROW_BACKGROUND)
                 imgui.table_setup_column(lang("Title"))
                 imgui.table_setup_column(lang("Artist"))
+                imgui.table_setup_column(lang("Action"))
                 imgui.table_headers_row()
-
-                # 修改：使用排序后的歌曲ID列表
                 for song_id in STATES.get("sorted_song_ids", []):
                     song_info = STATES["song_list"][song_id]
                     imgui.table_next_row()
+                    imgui.table_set_column_index(2)
+                    if imgui.button(lang("Delete") + f"##{song_id}"):
+                        delete_song(song_id)
                     imgui.table_set_column_index(0)
                     selectable_flags = imgui.SELECTABLE_SPAN_ALL_COLUMNS
                     if song_id == STATES["now_playing"]:
@@ -415,17 +473,25 @@ def main():
                 imgui.end_table()
                 imgui.end_child()
                 imgui.end_tab_item()
+
             if imgui.begin_tab_item(lang("Download")).selected:
                 _, STATES["search_text"] = imgui.input_text("##SearchText", STATES.get("search_text", ""))
                 imgui.same_line()
                 if imgui.button(lang("Search")):
-                    start_search()
+                    start_search(0)
                 imgui.same_line()
                 imgui.text(lang(STATES.get("search_status", "Idle")))
                 imgui.separator()
+                imgui.text(f"{lang("Page")}: {STATES.get('search_current_page', 0) + 1}")
+                imgui.same_line()
+                if imgui.button(lang("Previous page")) and STATES.get("search_current_page", 0) > 0:
+                    start_search(STATES.get("search_current_page", 0) - 1)
+                imgui.same_line()
+                if imgui.button(lang("Next page")):
+                    start_search(STATES.get("search_current_page", 0) + 1)
                 imgui.begin_child("##SearchResultScroll", 0, 0, True)
                 if STATES.get("search_results"):
-                    imgui.begin_table("##SearchResults", 3, imgui.TABLE_ROW_BACKGROUND | imgui.TABLE_RESIZABLE)
+                    imgui.begin_table("##SearchResults", 3, imgui.TABLE_ROW_BACKGROUND)
                     imgui.table_setup_column(lang("Title"))
                     imgui.table_setup_column(lang("Artist"))
                     imgui.table_setup_column(lang("Action"))
@@ -453,6 +519,7 @@ def main():
                     imgui.end_table()
                 imgui.end_child()
                 imgui.end_tab_item()
+
             if imgui.begin_tab_item(lang("Settings")).selected:
                 _, lang_index = imgui.combo(lang("Language"), STATES["settings"].get("language", 0), ["en"] + [lang for lang in LANGUAGES])
                 STATES["settings"]["language"] = lang_index
@@ -460,6 +527,23 @@ def main():
                 STATES["settings"]["theme"] = theme_index
                 _, play_mv = imgui.checkbox(lang("Play MV"), STATES["settings"].get("play_mv", False))
                 STATES["settings"]["play_mv"] = play_mv
+                if False:
+                    _, download_path = imgui.input_text(f"{lang("Download path")}", STATES["settings"].get("download_path", ""), 256)
+                    STATES["settings"]["download_path"] = download_path
+                    imgui.same_line()
+                    if imgui.button(lang("Browse")):
+                        root = tk.Tk()
+                        root.withdraw()
+                        folder_path = filedialog.askdirectory()
+                        if folder_path:
+                            STATES["settings"]["download_path"] = folder_path
+                        root.destroy()
+                    if STATES["songs_path"] != STATES["settings"]["download_path"]:
+                        STATES["songs_path"] = STATES["settings"]["download_path"]
+                        refresh_song_list()
+                _, STATES["search_count"] = imgui.input_int(lang("Search count"), STATES.get("search_count", 30), 1, 100)
+                _, STATES["settings"]["show_lyrics"] = imgui.checkbox(lang("Lyrics"), STATES["settings"].get("show_lyrics", True))
+                _, STATES["settings"]["volume"] = imgui.slider_float(lang("Volume"), STATES["settings"].get("volume", 0.5), 0, 1)
                 imgui.end_tab_item()
             imgui.end_tab_bar()
         imgui.end()

@@ -7,8 +7,8 @@ import pathlib
 class api:
     root_url = "https://ncm.zhenxin.me"
 
-    def search(text):
-        url = f"{api.root_url}/cloudsearch?keywords={text}"
+    def search(text, limit=30, page=0):
+        url = f"{api.root_url}/cloudsearch?&limit={limit}&offset={page*limit}&keywords={text}"
         response: dict = requests.get(url).json()
         if response["code"] != 200:
             print(response)
@@ -124,5 +124,4 @@ class api:
 
 
 if __name__ == "__main__":
-    api = api()
-    print(json.dumps(api.search("TRASH CLAN")))
+    print(json.dumps(api.search("Stay")))

@@ -18,7 +18,7 @@ from tkinter import filedialog
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.4.1"
+VERSION = "0.4.2"
 
 
 def resource_path(relative_path):
@@ -356,7 +356,7 @@ def main():
         if STATES.get("now_playing") and pygame.mixer.music.get_pos() < 0:
             play_song(STATES["sorted_song_ids"][numpy.random.randint(0, len(STATES["sorted_song_ids"]))])
 
-        screen.fill((0, 0, 0, 0))
+        screen.fill((0, 0, 0))
         if STATES.get("song_bg"):
             screen.blit(STATES["song_bg"], (0, 0))
         if STATES.get("now_playing"):

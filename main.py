@@ -18,7 +18,7 @@ from tkinter import filedialog
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.4.2"
+VERSION = "0.4.3"
 
 
 def resource_path(relative_path):
@@ -60,7 +60,7 @@ class DownloadThread(threading.Thread):
             print(f"[{self.song_id}][0/2]Fetching song info")
             song = CFVI.music.api.song(self.song_id)
             if song_info["privilege"]["pl"] <= 0:
-                if False:
+                if False:  # VIP
                     for i in CFVI.music.api.song2(self.song_id):
                         song[i] = CFVI.music.api.song2(self.song_id)[i]
                 else:
@@ -78,7 +78,8 @@ class DownloadThread(threading.Thread):
             song_info["data"] = song
             lyrics = CFVI.music.api.lyric(self.song_id)
             if lyrics:
-                song_info["lyrics"] = lyrics["lyrics"]
+                for i in lyrics:
+                    song_info[i] = lyrics[i]
             mv = CFVI.music.api.mv(song_info["mv"]) if song_info.get("mv") else None
             if mv:
                 song_info["mv"] = mv["url"]
@@ -106,6 +107,19 @@ class DownloadThread(threading.Thread):
             with LOCK:
                 STATES["download_status"][self.song_id] = f"Error: {str(e)}"
             print(f"Failed to download song: {e}")
+
+
+def redownload_all_songs():
+    """删除并重新下载所有歌曲"""
+    song_ids = list(STATES["song_list"].keys())
+    for song_id in song_ids:
+        delete_song(song_id)
+        with LOCK:
+            if song_id not in STATES["download_queue"]:
+                STATES["download_queue"].append(song_id)
+                STATES["download_status"][song_id] = "Queued"
+                download_thread = DownloadThread(song_id)
+                download_thread.start()
 
 
 def setup_opengl(screen):
@@ -151,25 +165,20 @@ def get_song_sort_key(song_info):
 
 
 def refresh_song_list():
-    if not os.path.exists(STATES["songs_path"]):
-        os.makedirs(STATES["songs_path"])
     STATES["song_list"] = {}
     STATES["sorted_song_ids"] = []
-    STATES["now_playing"] = None
-    STATES["is_playing"] = False
-    try:
-        pygame.mixer.music.stop()
-        pygame.mixer.music.unload()
-    except:
-        pass
-    if not os.path.exists(STATES["songs_path"]):
-        os.makedirs(STATES["songs_path"])
     for song_id in os.listdir(STATES["songs_path"]):
         info_path = f"{STATES['songs_path']}\\{song_id}\\info.json"
         if os.path.exists(info_path):
             STATES["song_list"][song_id] = json.loads(open(info_path, "r", encoding="utf-8").read())
     # 对歌曲列表按照作者-专辑-歌名排序
     STATES["sorted_song_ids"] = sorted(STATES["song_list"].keys(), key=lambda song_id: get_song_sort_key(STATES["song_list"][song_id]))
+    if not os.path.exists(STATES["songs_path"]):
+        os.makedirs(STATES["songs_path"])
+    if STATES.get("is_playing", False) and STATES["now_playing"] not in STATES["sorted_song_ids"]:
+        pygame.mixer.music.stop()
+        pygame.mixer.music.unload()
+        STATES["now_playing"] = None
 
 
 def play_song(song_id):
@@ -388,20 +397,21 @@ def main():
         pygame.draw.aalines(screen, (255, 255, 255), False, poses, 2)
 
         if STATES["settings"].get("show_lyrics", True) and pygame.mixer.music.get_pos() > 0 and STATES.get("now_playing") and STATES["song_list"].get(STATES["now_playing"], {}).get("lyrics"):
+            lyric_type = "tlyrics" if STATES["settings"].get("show_tlyric", False) and "tlyrics" in STATES["song_list"][STATES["now_playing"]] else "lyrics"
             now_lyric = 0
             last_time = 0
-            for i in range(len(STATES["song_list"][STATES["now_playing"]]["lyrics"]) + 1):
-                if i < len(STATES["song_list"][STATES["now_playing"]]["lyrics"]):
-                    line = STATES["song_list"][STATES["now_playing"]]["lyrics"][i]
+            for i in range(len(STATES["song_list"][STATES["now_playing"]][lyric_type]) + 1):
+                if i < len(STATES["song_list"][STATES["now_playing"]][lyric_type]):
+                    line = STATES["song_list"][STATES["now_playing"]][lyric_type][i]
                     time = line["time"]
                     if time > pygame.mixer.music.get_pos() / 1000:
                         now_lyric = i - 2 + ((pygame.mixer.music.get_pos() / 1000 - last_time) / (time - last_time + 1e-6)) ** 0.1
                         break
                     last_time = time
                 else:
-                    now_lyric = i - 2 + ((min(STATES["song_list"][STATES["now_playing"]]["lyrics"][-1]["time"] + 4.39, pygame.mixer.music.get_pos() / 1000) - last_time) / (min(STATES["song_list"][STATES["now_playing"]]["lyrics"][-1]["time"] + 4.39, STATES["song_list"][STATES["now_playing"]]["data"]["time"] / 1000) - last_time + 1e-6)) ** 0.1
-            for i in range(max(int(now_lyric), 0), min(int(now_lyric + 3), len(STATES["song_list"][STATES["now_playing"]]["lyrics"]))):
-                line = (STATES["song_list"][STATES["now_playing"]]["lyrics"])[i]
+                    now_lyric = i - 2 + ((min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, pygame.mixer.music.get_pos() / 1000) - last_time) / (min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, STATES["song_list"][STATES["now_playing"]]["data"]["time"] / 1000) - last_time + 1e-6)) ** 0.1
+            for i in range(max(int(now_lyric), 0), min(int(now_lyric + 3), len(STATES["song_list"][STATES["now_playing"]][lyric_type]))):
+                line = (STATES["song_list"][STATES["now_playing"]][lyric_type])[i]
                 time = line["time"]
                 text = CFVI.draw.text(font, line["text"], (255, 255, 255), min_width=screen.get_height())
                 text_burr = CFVI.draw.text(font, line["text"], (0, 0, 0), min_width=screen.get_height())
@@ -546,7 +556,12 @@ def main():
                         refresh_song_list()
                 _, STATES["search_count"] = imgui.input_int(lang("Search count"), STATES.get("search_count", 30), 1, 100)
                 _, STATES["settings"]["show_lyrics"] = imgui.checkbox(lang("Lyrics"), STATES["settings"].get("show_lyrics", True))
+                if STATES["settings"]["show_lyrics"]:
+                    imgui.same_line()
+                    _, STATES["settings"]["show_tlyric"] = imgui.checkbox(lang("Tlyric"), STATES["settings"].get("show_tlyric", False))
                 _, STATES["settings"]["volume"] = imgui.slider_float(lang("Volume"), STATES["settings"].get("volume", 0.5), 0, 1)
+                # if imgui.button(lang("Redownload All Songs")):
+                #     redownload_all_songs()
                 imgui.end_tab_item()
             imgui.end_tab_bar()
         imgui.end()

@@ -18,7 +18,7 @@ from tkinter import filedialog
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.4.0"
+VERSION = "0.4.1"
 
 
 def resource_path(relative_path):
@@ -193,7 +193,7 @@ def play_song(song_id):
     bg_path = f"{STATES['songs_path']}\\{song_id}\\pic.jpg"
     bg = pygame.image.load(bg_path) if os.path.exists(bg_path) else None
     if bg:
-        STATES["song_bg"] = pygame.transform.scale(bg, (STATES["screen_size"][1], STATES["screen_size"][1]))
+        STATES["song_bg"] = pygame.transform.smoothscale(bg, (STATES["screen_size"][1], STATES["screen_size"][1]))
     mv_path = f"{STATES['songs_path']}\\{song_id}\\mv.mp4"
     mv = moviepy.VideoFileClip(mv_path) if STATES["settings"].get("play_mv", False) and os.path.exists(mv_path) else None
     if mv:
@@ -363,6 +363,8 @@ def main():
             STATES["song_data_index"] = int(pygame.mixer.music.get_pos() / 1000 * STATES["song_sr"])
             STATES["song_data_cut"] = numpy.mean(cut(STATES.get("song_data", []), STATES["song_data_index"]), axis=1)
             STATES["song_data_fft"] = numpy.abs(numpy.fft.ihfft(STATES["song_data_cut"]))
+            STATES["song_data_fft_mean"] = STATES.get("song_data_fft_mean", numpy.zeros(len(STATES["song_data_fft"])))
+            STATES["song_data_fft_mean"] = [STATES["song_data_fft_mean"][i] + (STATES["song_data_fft"][i] - STATES["song_data_fft_mean"][i]) * 0.439 for i in range(len(STATES["song_data_fft"]))]
             virbo = numpy.var(STATES["song_data_fft"][:15])
             for i in range(screen.get_height()) if virbo > 0.001 else []:
                 if 1 + numpy.sin(numpy.tan(i**3 * STATES["song_data_index"])) > 0.25:
@@ -376,13 +378,14 @@ def main():
             STATES["rs"] = [numpy.mean(STATES["song_data_fft"][:50])] + STATES.get("rs", [0] * 2)[:-1]
             CFVI.draw.ring(screen, (screen.get_height() / 2, screen.get_height() / 2), screen.get_height() * 0.2 + numpy.mean(STATES["rs"]) * 4.39 * screen.get_height(), screen.get_height() * 0.1, (255, 255, 255, 128))
 
-        poses = [] if len(STATES.get("song_data_fft", [])) else [(0, screen.get_height()), (screen.get_height(), screen.get_height())]
-        for i in range(len(STATES.get("song_data_fft", []))):
-            x = i / len(STATES["song_data_fft"]) * screen.get_height()
-            y = screen.get_height() * (1.5 - sigmoid(numpy.mean(STATES["song_data_fft"][i]) * 43.9))
+        poses = [] if len(STATES.get("song_data_fft_mean", [])) else [(0, screen.get_height()), (screen.get_height(), screen.get_height())]
+        for i in range(len(STATES.get("song_data_fft_mean", []))):
+            x = i / len(STATES["song_data_fft_mean"]) * screen.get_height()
+            y = screen.get_height() * (1.5 - sigmoid(numpy.mean(STATES["song_data_fft_mean"][i]) * 43.9))
             poses.append((x, y))
-        pygame.draw.lines(screen, (0, 0, 0), False, poses, 2)
-        pygame.draw.aalines(screen, (255, 255, 255), False, poses, 1)
+        for offset in [(2, 0), (1, 1), (0, 2), (-1, 1), (-2, 0), (-1, -1), (0, -2), (1, -1)]:
+            pygame.draw.aalines(screen, (0, 0, 0), False, [(pos[0] + offset[0], pos[1] + offset[1]) for pos in poses], 2)
+        pygame.draw.aalines(screen, (255, 255, 255), False, poses, 2)
 
         if STATES["settings"].get("show_lyrics", True) and pygame.mixer.music.get_pos() > 0 and STATES.get("now_playing") and STATES["song_list"].get(STATES["now_playing"], {}).get("lyrics"):
             now_lyric = 0

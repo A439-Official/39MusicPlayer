@@ -1,6 +1,7 @@
 import pygame
 import CFVI.music
 import CFVI.draw
+import CFVI.os
 import imgui
 import imgui.integrations.pygame
 import OpenGL.GL
@@ -18,7 +19,7 @@ from tkinter import filedialog
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.4.3"
+VERSION = "0.5.3"
 
 
 def resource_path(relative_path):
@@ -98,7 +99,6 @@ class DownloadThread(threading.Thread):
                 with open(f"{path}\\mv.mp4", "wb") as f:
                     f.write(mv_data)
             with LOCK:
-                STATES["song_list"][self.song_id] = song_info
                 STATES["download_status"][self.song_id] = "Completed"
                 if self.song_id in STATES["download_queue"]:
                     STATES["download_queue"].remove(self.song_id)
@@ -170,8 +170,8 @@ def refresh_song_list():
     for song_id in os.listdir(STATES["songs_path"]):
         info_path = f"{STATES['songs_path']}\\{song_id}\\info.json"
         if os.path.exists(info_path):
-            STATES["song_list"][song_id] = json.loads(open(info_path, "r", encoding="utf-8").read())
-    # 对歌曲列表按照作者-专辑-歌名排序
+            if STATES["settings"].get("playlist", 0) == 0 or is_song_in_playlist(song_id, STATES["settings"].get("playlist", 0) - 1):
+                STATES["song_list"][song_id] = json.loads(open(info_path, "r", encoding="utf-8").read())
     STATES["sorted_song_ids"] = sorted(STATES["song_list"].keys(), key=lambda song_id: get_song_sort_key(STATES["song_list"][song_id]))
     if not os.path.exists(STATES["songs_path"]):
         os.makedirs(STATES["songs_path"])
@@ -320,6 +320,93 @@ def add_to_download_queue(song_id):
             download_thread.start()
 
 
+def create_new_playlist(name):
+    """创建新的播放列表"""
+    print(f"Creating new playlist: {name}")
+    STATES["settings"]["playlists"] = STATES["settings"].get("playlists", [])
+    for playlist in STATES["settings"]["playlists"]:
+        if playlist["name"] == name:
+            print(f"Playlist '{name}' already exists!")
+            return False
+    STATES["settings"]["playlists"].append({"name": name, "songs": []})
+    print(f"Playlist '{name}' created successfully!")
+    return True
+
+
+def delete_current_playlist(playlist_index):
+    """删除当前播放列表"""
+    if not STATES["settings"].get("playlists"):
+        print("No playlists available to delete!")
+        return False
+    if 0 <= playlist_index < len(STATES["settings"]["playlists"]):
+        deleted_playlist = STATES["settings"]["playlists"].pop(playlist_index)
+        print(f"Deleted playlist: {deleted_playlist['name']}")
+        if not STATES["settings"]["playlists"]:
+            STATES["settings"]["playlist"] = None
+        else:
+            STATES["settings"]["playlist"] = 0
+        return True
+    else:
+        print("Invalid playlist index!")
+        return False
+
+
+def get_playlist_songs(playlist_index):
+    """获取播放列表的歌曲"""
+    if not STATES["settings"].get("playlists"):
+        print("No playlists available!")
+        return []
+    if playlist_index is None or not (0 <= playlist_index < len(STATES["settings"]["playlists"])):
+        print("Invalid playlist index!")
+        return []
+    playlist = STATES["settings"]["playlists"][playlist_index]
+    return playlist["songs"]
+
+
+def add_song_to_playlist(song_id, playlist_index):
+    """将歌曲添加到播放列表"""
+    if not STATES["settings"].get("playlists"):
+        print("No playlists available!")
+        return False
+    if playlist_index is None or not (0 <= playlist_index < len(STATES["settings"]["playlists"])):
+        print("Invalid playlist index!")
+        return False
+    playlist = STATES["settings"]["playlists"][playlist_index]
+    if song_id in playlist["songs"]:
+        print(f"Song {song_id} already exists in playlist!")
+        return False
+    playlist["songs"].append(song_id)
+    print(f"Added song {song_id} to playlist '{playlist['name']}'")
+    return True
+
+
+def remove_song_from_playlist(song_id, playlist_index):
+    """从播放列表中移除歌曲"""
+    if not STATES["settings"].get("playlists"):
+        print("No playlists available!")
+        return False
+    if playlist_index is None or not (0 <= playlist_index < len(STATES["settings"]["playlists"])):
+        print("Invalid playlist index!")
+        return False
+    playlist = STATES["settings"]["playlists"][playlist_index]
+    if song_id not in playlist["songs"]:
+        print(f"Song {song_id} not found in playlist!")
+        return False
+    playlist["songs"].remove(song_id)
+    print(f"Removed song {song_id} from playlist '{playlist['name']}'")
+    return True
+
+
+def is_song_in_playlist(song_id, playlist_index):
+    """判断歌曲是否在播放列表中"""
+    if not STATES["settings"].get("playlists"):
+        return False
+    if playlist_index is None or not (0 <= playlist_index < len(STATES["settings"]["playlists"])):
+        return False
+    playlist = STATES["settings"]["playlists"][playlist_index]
+    return song_id in playlist["songs"]
+
+
 def main():
     pygame.init()
     _screen: pygame.Surface = pygame.display.set_mode((1280, 720), pygame.DOUBLEBUF | pygame.OPENGL, vsync=1)
@@ -345,10 +432,14 @@ def main():
     STATES["search_results"] = []
     STATES["search_status"] = "Idle"
     STATES["search_current_page"] = 0
-    STATES["settings"] = json.loads(open(STATES["settings_path"], "r", encoding="utf-8").read()) if os.path.exists(STATES["settings_path"]) else {}
+    with CFVI.os.FileUnlocker(STATES["settings_path"]):
+        STATES["settings"] = json.loads(open(STATES["settings_path"], "r", encoding="utf-8").read()) if os.path.exists(STATES["settings_path"]) else {}
     if "download_path" not in STATES["settings"]:
         STATES["settings"]["download_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\song"
     STATES["songs_path"] = STATES["settings"]["download_path"]
+    if not os.path.exists(STATES["songs_path"]):
+        with CFVI.os.FileUnlocker(STATES["songs_path"] + "\\.."):
+            os.makedirs(STATES["songs_path"])
     refresh_song_list()
 
     # resources
@@ -358,7 +449,6 @@ def main():
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
                 running = False
-
             impl.process_event(event)
 
         pygame.mixer.music.set_volume(STATES["settings"].get("volume", 0.5))
@@ -413,8 +503,8 @@ def main():
             for i in range(max(int(now_lyric), 0), min(int(now_lyric + 3), len(STATES["song_list"][STATES["now_playing"]][lyric_type]))):
                 line = (STATES["song_list"][STATES["now_playing"]][lyric_type])[i]
                 time = line["time"]
-                text = CFVI.draw.text(font, line["text"], (255, 255, 255), min_width=screen.get_height())
-                text_burr = CFVI.draw.text(font, line["text"], (0, 0, 0), min_width=screen.get_height())
+                text = CFVI.draw.text_ex(font, line["text"], (255, 255, 255), min_width=screen.get_height())
+                text_burr = CFVI.draw.text_ex(font, line["text"], (0, 0, 0), min_width=screen.get_height())
                 for x, y in [(2, 0), (1, 1), (0, 2), (-1, 1), (-2, 0), (-1, -1), (0, -2), (1, -1)]:
                     screen.blit(text_burr, (int(screen.get_height() / 2 - text_burr.get_width() / 2 + x), int(screen.get_height() / 2 + (i - now_lyric) * screen.get_height() * 0.1 - text_burr.get_height() / 2 + y)))
                 screen.blit(text, (screen.get_height() / 2 - text.get_width() / 2, screen.get_height() / 2 + (i - now_lyric) * screen.get_height() * 0.1 - text.get_height() / 2))
@@ -439,7 +529,10 @@ def main():
                 imgui.text(f"{STATES["song_list"].get(STATES["now_playing"], {"name": ""})["name"]}")
                 imgui.same_line()
                 imgui.text_colored(f"{STATES["song_list"].get(STATES["now_playing"], {"album": ""})["album"]}", 0.5, 0.5, 0.5)
-                imgui.progress_bar(pygame.mixer.music.get_pos() / STATES["song_list"].get(STATES["now_playing"], {}).get("data", "")["time"] if STATES["now_playing"] else 0, (imgui.get_column_width(), 8))
+                try:
+                    imgui.progress_bar(max(0, pygame.mixer.music.get_pos()) / STATES["song_list"].get(STATES["now_playing"], {}).get("data", {"time": 0})["time"] if STATES["now_playing"] else 0, (imgui.get_column_width(), 8))
+                except:
+                    imgui.progress_bar(0, (imgui.get_column_width(), 8))
                 current_time = f"{int(pygame.mixer.music.get_pos() / 60000)}:{int(numpy.mod(max(pygame.mixer.music.get_pos() / 1000, 0), 60)):02d}"
                 total_time = f"{int(STATES['song_list'].get(STATES['now_playing'], {'data': {'time': 0}}).get('data', {'time': 0})['time'] / 60000)}:{int(numpy.mod(max(STATES['song_list'].get(STATES['now_playing'], {'data': {'time': 0}}).get('data', {'time': 0})['time'] / 1000, 0), 60)):02d}"
                 available_width = imgui.get_content_region_available().x
@@ -463,6 +556,19 @@ def main():
                 imgui.same_line()
                 if imgui.button(lang("Next"), 128, 32):
                     play_next_song()
+
+                # playlist here
+                _, playlist_index = imgui.combo(lang("Playlists"), STATES["settings"].get("playlist", 0), [lang("All")] + [playlist["name"] for playlist in STATES["settings"].get("playlists", [])] + [lang("Delete current")])
+                STATES["new_playlist_name"] = imgui.input_text("##NewPlaylistName", STATES.get("new_playlist_name", ""), 256)[1]
+                imgui.same_line()
+                if imgui.button(lang("Create")):
+                    create_new_playlist(STATES.get("new_playlist_name", ""))
+                if _:
+                    if playlist_index == len(STATES["settings"].get("playlists", [])) + 1:
+                        delete_current_playlist(STATES["settings"]["playlist"] - 1)
+                    STATES["settings"]["playlist"] = playlist_index
+                    refresh_song_list()
+
                 imgui.begin_child("##SongListScroll", 0, 0, True)
                 imgui.begin_table("##SongList", 3, imgui.TABLE_ROW_BACKGROUND)
                 imgui.table_setup_column(lang("Title"))
@@ -473,8 +579,21 @@ def main():
                     song_info = STATES["song_list"][song_id]
                     imgui.table_next_row()
                     imgui.table_set_column_index(2)
-                    if imgui.button(lang("Delete") + f"##{song_id}"):
-                        delete_song(song_id)
+                    # if imgui.button(lang("Delete") + f"##{song_id}"):
+                    #     delete_song(song_id)
+                    _, action_index = imgui.combo(f"##{song_id}Action", 0, [lang("Play")] + [lang("Delete")] + [f"{lang("Add to playlist:") if not is_song_in_playlist(song_id, i) else lang("Remove from playlist:")} {playlist["name"]}" for i, playlist in enumerate(STATES["settings"].get("playlists", []))])
+                    if _:
+                        if action_index == 0:
+                            play_song(song_id)
+                        elif action_index == 1:
+                            delete_song(song_id)
+                            refresh_song_list()
+                        else:
+                            if is_song_in_playlist(song_id, action_index - 2):
+                                remove_song_from_playlist(song_id, action_index - 2)
+                            else:
+                                add_song_to_playlist(song_id, action_index - 2)
+                            refresh_song_list()
                     imgui.table_set_column_index(0)
                     selectable_flags = imgui.SELECTABLE_SPAN_ALL_COLUMNS
                     if song_id == STATES["now_playing"]:
@@ -573,8 +692,10 @@ def main():
         render_loop(_screen, screen, texture_id, impl)
 
     pygame.quit()
-    with open(STATES["settings_path"], "w", encoding="utf-8") as f:
-        f.write(json.dumps(STATES["settings"]))
+    with CFVI.os.FileUnlocker(STATES["settings_path"]):
+        with open(STATES["settings_path"], "w", encoding="utf-8") as f:
+            f.write(json.dumps(STATES["settings"]))
+            f.flush()
     return
 
 

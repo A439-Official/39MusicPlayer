@@ -19,7 +19,7 @@ from tkinter import filedialog
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.5.6"
+VERSION = "0.6.1"
 
 
 def resource_path(relative_path):
@@ -146,7 +146,7 @@ def setup_imgui(screen):
     io = imgui.get_io()
     io.display_size = screen.get_size()
     font_config = imgui.FontConfig(merge_mode=True)
-    font_path = resource_path(f"./resources/{FONTS[STATES["settings"]["ui_font"]]}")
+    font_path = resource_path(f"./resources/{FONTS[STATES["settings"].get("ui_font", 0)]}")
     font = io.fonts.add_font_from_file_ttf(font_path, 16, None, io.fonts.get_glyph_ranges_default())
     font = io.fonts.add_font_from_file_ttf(font_path, 16, font_config, io.fonts.get_glyph_ranges_chinese_full())
     font = io.fonts.add_font_from_file_ttf(font_path, 16, font_config, io.fonts.get_glyph_ranges_latin())
@@ -183,32 +183,25 @@ def get_song_sort_key(song_info):
 
 
 def refresh_song_list():
-    # 创建新线程执行刷新操作
     refresh_thread = threading.Thread(target=_refresh_song_list_worker)
-    refresh_thread.daemon = True  # 设置为守护线程
+    refresh_thread.daemon = True
     refresh_thread.start()
 
 
 def _refresh_song_list_worker():
     """实际执行刷新操作的线程函数"""
-    with LOCK:  # 使用线程锁保证线程安全
-        # 保存当前播放状态
+    with LOCK:
         was_playing = STATES.get("is_playing", False)
         now_playing_id = STATES.get("now_playing")
-
-        # 刷新歌曲列表
         STATES["song_list"] = {}
         STATES["sorted_song_ids"] = []
-
         songs_path = STATES["settings"]["download_path"]
         if not os.path.exists(songs_path):
             os.makedirs(songs_path)
             return
-
         for song_id in os.listdir(songs_path):
             info_path = os.path.join(songs_path, song_id, "info.json")
             if os.path.exists(info_path):
-                # 检查播放列表筛选条件
                 playlist_setting = STATES["settings"].get("playlist", 0)
                 if playlist_setting == 0 or is_song_in_playlist(song_id, playlist_setting - 1):
                     try:
@@ -216,11 +209,7 @@ def _refresh_song_list_worker():
                             STATES["song_list"][song_id] = json.load(f)
                     except Exception as e:
                         print(f"Error loading song info {info_path}: {e}")
-
-        # 排序歌曲ID
         STATES["sorted_song_ids"] = sorted(STATES["song_list"].keys(), key=lambda song_id: get_song_sort_key(STATES["song_list"][song_id]))
-
-        # 检查当前播放的歌曲是否还在列表中
         if was_playing and now_playing_id and now_playing_id not in STATES["sorted_song_ids"]:
             pygame.mixer.music.stop()
             pygame.mixer.music.unload()
@@ -241,6 +230,8 @@ def play_song(song_id):
         pygame.mixer.music.load(song_path)
         pygame.mixer.music.play()
         STATES["is_playing"] = True
+        STATES["start_play_time"] = pygame.time.get_ticks()
+        STATES["song_length"] = STATES["song_list"][song_id]["data"]["time"]
     except Exception as e:
         print(f"Failed to play song: {e}")
         STATES["now_playing"] = None
@@ -477,8 +468,7 @@ def main():
     if "download_path" not in STATES["settings"]:
         STATES["settings"]["download_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\song"
     if not os.path.exists(STATES["settings"]["download_path"]):
-        with CFVI.os.FileUnlocker(STATES["settings"]["download_path"] + "\\.."):
-            os.makedirs(STATES["settings"]["download_path"])
+        os.makedirs(STATES["settings"]["download_path"])
     refresh_song_list()
 
     texture_id = setup_opengl(_screen)
@@ -497,14 +487,15 @@ def main():
             impl.process_event(event)
 
         pygame.mixer.music.set_volume(STATES["settings"].get("volume", 0.5))
-        if STATES.get("now_playing") and pygame.mixer.music.get_pos() < 0:
+        if STATES.get("now_playing") and STATES["current_time"] > STATES.get("song_length", 0):
             play_song(STATES["sorted_song_ids"][numpy.random.randint(0, len(STATES["sorted_song_ids"]))])
+        STATES["current_time"] = pygame.time.get_ticks() - STATES.get("start_play_time", pygame.time.get_ticks()) if STATES.get("is_playing") else STATES.get("current_time", 0)
 
         screen.fill((0, 0, 0))
         if STATES.get("song_bg"):
             screen.blit(STATES["song_bg"], (0, 0))
         if STATES.get("now_playing"):
-            STATES["song_data_index"] = int(pygame.mixer.music.get_pos() / 1000 * STATES["song_sr"])
+            STATES["song_data_index"] = int(STATES["current_time"] / 1000 * STATES["song_sr"])
             STATES["song_data_cut"] = numpy.mean(cut(STATES.get("song_data", []), STATES["song_data_index"]), axis=1)
             STATES["song_data_fft"] = numpy.abs(numpy.fft.ihfft(STATES["song_data_cut"]))
             STATES["song_data_fft_mean"] = STATES.get("song_data_fft_mean", numpy.zeros(len(STATES["song_data_fft"])))
@@ -516,7 +507,7 @@ def main():
                         screen.blit(screen, (int((numpy.sin(numpy.tan(i**2 * STATES["song_data_index"]))) * virbo * screen.get_height() * 4.39), i), (0, i, screen.get_height(), 1))
         screen.fill((0, 0, 0), (screen.get_height(), 0, screen.get_width() - screen.get_height(), screen.get_height()))
         if STATES.get("song_mv"):
-            frame = pygame.surfarray.make_surface(STATES["song_mv"].get_frame(pygame.mixer.music.get_pos() / 1000).swapaxes(0, 1))
+            frame = pygame.surfarray.make_surface(STATES["song_mv"].get_frame(STATES["current_time"] / 1000).swapaxes(0, 1))
             frame = pygame.transform.scale_by(frame, screen.get_height() / frame.get_width())
             screen.blit(frame, (0, screen.get_height() / 2 - frame.get_height() / 2))
         if STATES.get("now_playing"):
@@ -532,7 +523,7 @@ def main():
             pygame.draw.aalines(screen, (0, 0, 0), False, [(pos[0] + offset[0], pos[1] + offset[1]) for pos in poses], 2)
         pygame.draw.aalines(screen, (255, 255, 255), False, poses, 2)
 
-        if STATES["settings"].get("show_lyrics", True) and pygame.mixer.music.get_pos() > 0 and STATES.get("now_playing") and STATES["song_list"].get(STATES["now_playing"], {}).get("lyrics"):
+        if STATES["settings"].get("show_lyrics", True) and STATES["current_time"] > 0 and STATES.get("now_playing") and STATES["song_list"].get(STATES["now_playing"], {}).get("lyrics"):
             lyric_type = "tlyrics" if STATES["settings"].get("show_tlyric", False) and "tlyrics" in STATES["song_list"][STATES["now_playing"]] else "lyrics"
             now_lyric = 0
             last_time = 0
@@ -540,12 +531,12 @@ def main():
                 if i < len(STATES["song_list"][STATES["now_playing"]][lyric_type]):
                     line = STATES["song_list"][STATES["now_playing"]][lyric_type][i]
                     time = line["time"]
-                    if time > pygame.mixer.music.get_pos() / 1000:
-                        now_lyric = i - 2 + ((pygame.mixer.music.get_pos() / 1000 - last_time) / (time - last_time + 1e-6)) ** 0.1
+                    if time > STATES["current_time"] / 1000:
+                        now_lyric = i - 2 + ((STATES["current_time"] / 1000 - last_time) / (time - last_time + 1e-6)) ** 0.1
                         break
                     last_time = time
                 else:
-                    now_lyric = i - 2 + ((min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, pygame.mixer.music.get_pos() / 1000) - last_time) / (min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, STATES["song_list"][STATES["now_playing"]]["data"]["time"] / 1000) - last_time + 1e-6)) ** 0.1
+                    now_lyric = i - 2 + ((min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, STATES["current_time"] / 1000) - last_time) / (min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, STATES["song_list"][STATES["now_playing"]]["data"]["time"] / 1000) - last_time + 1e-6)) ** 0.1
             for i in range(max(int(now_lyric), 0), min(int(now_lyric + 3), len(STATES["song_list"][STATES["now_playing"]][lyric_type]))):
                 line = (STATES["song_list"][STATES["now_playing"]][lyric_type])[i]
                 time = line["time"]
@@ -575,11 +566,15 @@ def main():
                 imgui.text(f"{STATES["song_list"].get(STATES["now_playing"], {"name": ""})["name"]}")
                 imgui.same_line()
                 imgui.text_colored(f"{STATES["song_list"].get(STATES["now_playing"], {"album": ""})["album"]}", 0.5, 0.5, 0.5)
-                try:
-                    imgui.progress_bar(max(0, pygame.mixer.music.get_pos()) / STATES["song_list"].get(STATES["now_playing"], {}).get("data", {"time": 0})["time"] if STATES["now_playing"] else 0, (imgui.get_column_width(), 8))
-                except:
-                    imgui.progress_bar(0, (imgui.get_column_width(), 8))
-                current_time = f"{int(pygame.mixer.music.get_pos() / 60000)}:{int(numpy.mod(max(pygame.mixer.music.get_pos() / 1000, 0), 60)):02d}"
+                # try:
+                progress = max(0, STATES["current_time"]) / STATES.get("song_length", 0) if STATES["now_playing"] else 0
+                imgui.set_next_item_width(imgui.get_column_width())
+                _, select_progress = imgui.slider_float("##Progress", progress, 0, 1, "")
+                if _ and STATES["now_playing"]:
+                    next_time = int(select_progress * STATES.get("song_length", 0) / 1000)
+                    STATES["start_play_time"] += STATES["current_time"] - next_time * 1000
+                    pygame.mixer.music.set_pos(next_time)
+                current_time = f"{int(STATES["current_time"] / 60000)}:{int(numpy.mod(max(STATES["current_time"] / 1000, 0), 60)):02d}"
                 total_time = f"{int(STATES['song_list'].get(STATES['now_playing'], {'data': {'time': 0}}).get('data', {'time': 0})['time'] / 60000)}:{int(numpy.mod(max(STATES['song_list'].get(STATES['now_playing'], {'data': {'time': 0}}).get('data', {'time': 0})['time'] / 1000, 0), 60)):02d}"
                 available_width = imgui.get_content_region_available().x
                 imgui.text(current_time)
@@ -751,6 +746,7 @@ def main():
         with open(STATES["settings_path"], "w", encoding="utf-8") as f:
             f.write(json.dumps(STATES["settings"]))
             f.flush()
+    CFVI.os.lock_file(STATES["settings_path"])
     return
 
 

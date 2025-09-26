@@ -251,9 +251,11 @@ def pause_song():
     if STATES.get("is_playing", False):
         pygame.mixer.music.pause()
         STATES["is_playing"] = False
+        STATES["start_pause_time"] = pygame.time.get_ticks()
     else:
         pygame.mixer.music.unpause()
         STATES["is_playing"] = True
+        STATES["start_play_time"] += pygame.time.get_ticks() - STATES["start_pause_time"]
 
 
 def play_next_song():

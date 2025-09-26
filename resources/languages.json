@@ -45,6 +45,11 @@
         "Delete current": "删除当前",
         "Add to playlist:": "添加到歌单:",
         "Remove from playlist:": "从歌单中移除:",
-        "Create": "创建"
+        "Create": "创建",
+        "Volume": "音量",
+        "Lyrics font": "歌词字体",
+        "UI font": "界面字体",
+        "Restart to apply": "重启以应用",
+        "Vibrate": "抖动"
     }
 }

@@ -19,7 +19,7 @@ from tkinter import filedialog
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.5.3"
+VERSION = "0.5.6"
 
 
 def resource_path(relative_path):
@@ -34,6 +34,11 @@ STATES = {}
 LOCK = threading.Lock()
 LANGUAGES = json.load(open(resource_path("./resources/languages.json"), "r", encoding="utf-8"))
 THEMES = json.load(open(resource_path("./resources/themes.json"), "r", encoding="utf-8"))
+FONTS: list[str] = [
+    "unifont.otf",
+    "851.ttf",
+    "HarmonyOS Sans.ttf",
+]
 
 
 def lang(text):
@@ -56,7 +61,7 @@ class DownloadThread(threading.Thread):
         with LOCK:
             STATES["download_status"][self.song_id] = "Downloading"
         try:
-            path = f"{STATES['songs_path']}\\{self.song_id}"
+            path = f"{STATES["settings"]["download_path"]}\\{self.song_id}"
             song_info = CFVI.music.api.info(self.song_id)
             print(f"[{self.song_id}][0/2]Fetching song info")
             song = CFVI.music.api.song(self.song_id)
@@ -90,7 +95,7 @@ class DownloadThread(threading.Thread):
             if not os.path.exists(path):
                 os.makedirs(path)
             with open(f"{path}\\info.json", "w", encoding="utf-8") as f:
-                f.write(json.dumps(song_info))
+                json.dump(song_info, f)
             with open(f"{path}\\song.{song_info['data']['type']}", "wb") as f:
                 f.write(song_data)
             with open(f"{path}\\pic.jpg", "wb") as f:
@@ -98,6 +103,8 @@ class DownloadThread(threading.Thread):
             if mv_data:
                 with open(f"{path}\\mv.mp4", "wb") as f:
                     f.write(mv_data)
+            with open(f"{path}\\{CFVI.os.safe_filename(" & ".join(song_info['artist']) + "-" + song_info['name'])}", "w") as f:
+                f.write("")
             with LOCK:
                 STATES["download_status"][self.song_id] = "Completed"
                 if self.song_id in STATES["download_queue"]:
@@ -113,6 +120,8 @@ def redownload_all_songs():
     """删除并重新下载所有歌曲"""
     song_ids = list(STATES["song_list"].keys())
     for song_id in song_ids:
+        # if song_id in list(STATES["song_list"].keys()):
+        #     continue
         delete_song(song_id)
         with LOCK:
             if song_id not in STATES["download_queue"]:
@@ -136,7 +145,16 @@ def setup_imgui(screen):
     impl = imgui.integrations.pygame.PygameRenderer()
     io = imgui.get_io()
     io.display_size = screen.get_size()
-    font = io.fonts.add_font_from_file_ttf(resource_path("./resources/unifont-16.0.04.otf"), 16, None, io.fonts.get_glyph_ranges_chinese_full())
+    font_config = imgui.FontConfig(merge_mode=True)
+    font_path = resource_path(f"./resources/{FONTS[STATES["settings"]["ui_font"]]}")
+    font = io.fonts.add_font_from_file_ttf(font_path, 16, None, io.fonts.get_glyph_ranges_default())
+    font = io.fonts.add_font_from_file_ttf(font_path, 16, font_config, io.fonts.get_glyph_ranges_chinese_full())
+    font = io.fonts.add_font_from_file_ttf(font_path, 16, font_config, io.fonts.get_glyph_ranges_latin())
+    font = io.fonts.add_font_from_file_ttf(font_path, 16, font_config, io.fonts.get_glyph_ranges_japanese())
+    font = io.fonts.add_font_from_file_ttf(font_path, 16, font_config, io.fonts.get_glyph_ranges_korean())
+    font = io.fonts.add_font_from_file_ttf(font_path, 16, font_config, io.fonts.get_glyph_ranges_cyrillic())
+    font = io.fonts.add_font_from_file_ttf(font_path, 16, font_config, io.fonts.get_glyph_ranges_vietnamese())
+    font = io.fonts.add_font_from_file_ttf(font_path, 16, font_config, io.fonts.get_glyph_ranges_thai())
     impl.refresh_font_texture()
     return impl, font
 
@@ -165,20 +183,49 @@ def get_song_sort_key(song_info):
 
 
 def refresh_song_list():
-    STATES["song_list"] = {}
-    STATES["sorted_song_ids"] = []
-    for song_id in os.listdir(STATES["songs_path"]):
-        info_path = f"{STATES['songs_path']}\\{song_id}\\info.json"
-        if os.path.exists(info_path):
-            if STATES["settings"].get("playlist", 0) == 0 or is_song_in_playlist(song_id, STATES["settings"].get("playlist", 0) - 1):
-                STATES["song_list"][song_id] = json.loads(open(info_path, "r", encoding="utf-8").read())
-    STATES["sorted_song_ids"] = sorted(STATES["song_list"].keys(), key=lambda song_id: get_song_sort_key(STATES["song_list"][song_id]))
-    if not os.path.exists(STATES["songs_path"]):
-        os.makedirs(STATES["songs_path"])
-    if STATES.get("is_playing", False) and STATES["now_playing"] not in STATES["sorted_song_ids"]:
-        pygame.mixer.music.stop()
-        pygame.mixer.music.unload()
-        STATES["now_playing"] = None
+    # 创建新线程执行刷新操作
+    refresh_thread = threading.Thread(target=_refresh_song_list_worker)
+    refresh_thread.daemon = True  # 设置为守护线程
+    refresh_thread.start()
+
+
+def _refresh_song_list_worker():
+    """实际执行刷新操作的线程函数"""
+    with LOCK:  # 使用线程锁保证线程安全
+        # 保存当前播放状态
+        was_playing = STATES.get("is_playing", False)
+        now_playing_id = STATES.get("now_playing")
+
+        # 刷新歌曲列表
+        STATES["song_list"] = {}
+        STATES["sorted_song_ids"] = []
+
+        songs_path = STATES["settings"]["download_path"]
+        if not os.path.exists(songs_path):
+            os.makedirs(songs_path)
+            return
+
+        for song_id in os.listdir(songs_path):
+            info_path = os.path.join(songs_path, song_id, "info.json")
+            if os.path.exists(info_path):
+                # 检查播放列表筛选条件
+                playlist_setting = STATES["settings"].get("playlist", 0)
+                if playlist_setting == 0 or is_song_in_playlist(song_id, playlist_setting - 1):
+                    try:
+                        with open(info_path, "r", encoding="utf-8") as f:
+                            STATES["song_list"][song_id] = json.load(f)
+                    except Exception as e:
+                        print(f"Error loading song info {info_path}: {e}")
+
+        # 排序歌曲ID
+        STATES["sorted_song_ids"] = sorted(STATES["song_list"].keys(), key=lambda song_id: get_song_sort_key(STATES["song_list"][song_id]))
+
+        # 检查当前播放的歌曲是否还在列表中
+        if was_playing and now_playing_id and now_playing_id not in STATES["sorted_song_ids"]:
+            pygame.mixer.music.stop()
+            pygame.mixer.music.unload()
+            STATES["now_playing"] = None
+            STATES["is_playing"] = False
 
 
 def play_song(song_id):
@@ -186,7 +233,7 @@ def play_song(song_id):
     STATES["now_playing"] = song_id
     STATES["song_bg"] = None
     STATES["song_mv"] = None
-    song_path = f"{STATES['songs_path']}\\{song_id}\\song.{STATES['song_list'][song_id]['data']['type']}"
+    song_path = f"{STATES["settings"]["download_path"]}\\{song_id}\\song.{STATES['song_list'][song_id]['data']['type']}"
     if not pygame.mixer.get_init():
         pygame.mixer.init()
     try:
@@ -199,11 +246,11 @@ def play_song(song_id):
         STATES["now_playing"] = None
         STATES["is_playing"] = False
     STATES["song_data"], STATES["song_sr"] = soundfile.read(song_path)
-    bg_path = f"{STATES['songs_path']}\\{song_id}\\pic.jpg"
+    bg_path = f"{STATES["settings"]["download_path"]}\\{song_id}\\pic.jpg"
     bg = pygame.image.load(bg_path) if os.path.exists(bg_path) else None
     if bg:
         STATES["song_bg"] = pygame.transform.smoothscale(bg, (STATES["screen_size"][1], STATES["screen_size"][1]))
-    mv_path = f"{STATES['songs_path']}\\{song_id}\\mv.mp4"
+    mv_path = f"{STATES["settings"]["download_path"]}\\{song_id}\\mv.mp4"
     mv = moviepy.VideoFileClip(mv_path) if STATES["settings"].get("play_mv", False) and os.path.exists(mv_path) else None
     if mv:
         STATES["song_mv"] = mv
@@ -243,7 +290,7 @@ def delete_song(song_id):
             pygame.mixer.music.unload()
             STATES["now_playing"] = None
             STATES["is_playing"] = False
-        song_path = f"{STATES['songs_path']}\\{song_id}"
+        song_path = f"{STATES["settings"]["download_path"]}\\{song_id}"
         if os.path.exists(song_path):
             import shutil
 
@@ -412,15 +459,8 @@ def main():
     _screen: pygame.Surface = pygame.display.set_mode((1280, 720), pygame.DOUBLEBUF | pygame.OPENGL, vsync=1)
     screen = pygame.Surface(_screen.get_size(), pygame.SRCALPHA)
 
-    texture_id = setup_opengl(_screen)
-    impl, imgui_font = setup_imgui(_screen)
-    pygame.display.set_caption(f"{NAME} v{VERSION}")
-    pygame.display.set_icon(pygame.image.load(resource_path("./resources/39.png")))
-    running = True
-
     # variables
     STATES["screen_size"] = _screen.get_size()
-    STATES["songs_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\song"
     STATES["settings_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\settings.json"
     STATES["song_list"] = {}
     STATES["sorted_song_ids"] = []
@@ -436,14 +476,19 @@ def main():
         STATES["settings"] = json.loads(open(STATES["settings_path"], "r", encoding="utf-8").read()) if os.path.exists(STATES["settings_path"]) else {}
     if "download_path" not in STATES["settings"]:
         STATES["settings"]["download_path"] = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\song"
-    STATES["songs_path"] = STATES["settings"]["download_path"]
-    if not os.path.exists(STATES["songs_path"]):
-        with CFVI.os.FileUnlocker(STATES["songs_path"] + "\\.."):
-            os.makedirs(STATES["songs_path"])
+    if not os.path.exists(STATES["settings"]["download_path"]):
+        with CFVI.os.FileUnlocker(STATES["settings"]["download_path"] + "\\.."):
+            os.makedirs(STATES["settings"]["download_path"])
     refresh_song_list()
 
+    texture_id = setup_opengl(_screen)
+    impl, imgui_font = setup_imgui(_screen)
+    pygame.display.set_caption(f"{NAME} v{VERSION}")
+    pygame.display.set_icon(pygame.image.load(resource_path("./resources/39.png")))
+    running = True
+
     # resources
-    font = pygame.font.Font(resource_path("./resources/851.ttf"), int(screen.get_height() * 0.0439))
+    font = pygame.font.Font(resource_path(f"./resources/{FONTS[STATES["settings"].get("lyrics_font", 1)]}"), int(screen.get_height() * 0.0439))
 
     while running:
         for event in pygame.event.get():
@@ -464,10 +509,11 @@ def main():
             STATES["song_data_fft"] = numpy.abs(numpy.fft.ihfft(STATES["song_data_cut"]))
             STATES["song_data_fft_mean"] = STATES.get("song_data_fft_mean", numpy.zeros(len(STATES["song_data_fft"])))
             STATES["song_data_fft_mean"] = [STATES["song_data_fft_mean"][i] + (STATES["song_data_fft"][i] - STATES["song_data_fft_mean"][i]) * 0.439 for i in range(len(STATES["song_data_fft"]))]
-            virbo = numpy.var(STATES["song_data_fft"][:15])
-            for i in range(screen.get_height()) if virbo > 0.001 else []:
-                if 1 + numpy.sin(numpy.tan(i**3 * STATES["song_data_index"])) > 0.25:
-                    screen.blit(screen, (int((numpy.sin(numpy.tan(i**2 * STATES["song_data_index"]))) * virbo * screen.get_height() * 4.39), i), (0, i, screen.get_height(), 1))
+            if STATES["settings"].get("vibrate", True):
+                virbo = numpy.var(STATES["song_data_fft"][:15])
+                for i in range(screen.get_height()) if virbo > 0.001 else []:
+                    if 1 + numpy.sin(numpy.tan(i**3 * STATES["song_data_index"])) > 0.25:
+                        screen.blit(screen, (int((numpy.sin(numpy.tan(i**2 * STATES["song_data_index"]))) * virbo * screen.get_height() * 4.39), i), (0, i, screen.get_height(), 1))
         screen.fill((0, 0, 0), (screen.get_height(), 0, screen.get_width() - screen.get_height(), screen.get_height()))
         if STATES.get("song_mv"):
             frame = pygame.surfarray.make_surface(STATES["song_mv"].get_frame(pygame.mixer.music.get_pos() / 1000).swapaxes(0, 1))
@@ -504,7 +550,7 @@ def main():
                 line = (STATES["song_list"][STATES["now_playing"]][lyric_type])[i]
                 time = line["time"]
                 text = CFVI.draw.text_ex(font, line["text"], (255, 255, 255), min_width=screen.get_height())
-                text_burr = CFVI.draw.text_ex(font, line["text"], (0, 0, 0), min_width=screen.get_height())
+                text_burr = CFVI.draw.blur(CFVI.draw.text_ex(font, line["text"], (0, 0, 0), min_width=screen.get_height()))
                 for x, y in [(2, 0), (1, 1), (0, 2), (-1, 1), (-2, 0), (-1, -1), (0, -2), (1, -1)]:
                     screen.blit(text_burr, (int(screen.get_height() / 2 - text_burr.get_width() / 2 + x), int(screen.get_height() / 2 + (i - now_lyric) * screen.get_height() * 0.1 - text_burr.get_height() / 2 + y)))
                 screen.blit(text, (screen.get_height() / 2 - text.get_width() / 2, screen.get_height() / 2 + (i - now_lyric) * screen.get_height() * 0.1 - text.get_height() / 2))
@@ -670,8 +716,8 @@ def main():
                         if folder_path:
                             STATES["settings"]["download_path"] = folder_path
                         root.destroy()
-                    if STATES["songs_path"] != STATES["settings"]["download_path"]:
-                        STATES["songs_path"] = STATES["settings"]["download_path"]
+                    if STATES["settings"]["download_path"] != STATES["settings"]["download_path"]:
+                        STATES["settings"]["download_path"] = STATES["settings"]["download_path"]
                         refresh_song_list()
                 _, STATES["search_count"] = imgui.input_int(lang("Search count"), STATES.get("search_count", 30), 1, 100)
                 _, STATES["settings"]["show_lyrics"] = imgui.checkbox(lang("Lyrics"), STATES["settings"].get("show_lyrics", True))
@@ -681,6 +727,15 @@ def main():
                 _, STATES["settings"]["volume"] = imgui.slider_float(lang("Volume"), STATES["settings"].get("volume", 0.5), 0, 1)
                 # if imgui.button(lang("Redownload All Songs")):
                 #     redownload_all_songs()
+                _, lyrics_font_index = imgui.combo(lang("Lyrics font"), STATES["settings"].get("lyrics_font", 1), [".".join(font.split(".")[:-1]) for font in FONTS])
+                STATES["settings"]["lyrics_font"] = lyrics_font_index
+                if _:
+                    font = pygame.font.Font(resource_path(f"./resources/{FONTS[STATES["settings"]["lyrics_font"]]}"), int(screen.get_height() * 0.0439))
+                _, ui_font_index = imgui.combo(lang("UI font"), STATES["settings"].get("ui_font", 0), [".".join(font.split(".")[:-1]) for font in FONTS])
+                STATES["settings"]["ui_font"] = ui_font_index
+                if imgui.is_item_hovered():
+                    imgui.set_tooltip(lang("Restart to apply"))
+                _, STATES["settings"]["vibrate"] = imgui.checkbox(lang("Vibrate"), STATES["settings"].get("vibrate", True))
                 imgui.end_tab_item()
             imgui.end_tab_bar()
         imgui.end()

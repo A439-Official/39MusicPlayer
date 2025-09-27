@@ -19,7 +19,7 @@ from tkinter import filedialog
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.6.1"
+VERSION = "0.6.3"
 
 
 def resource_path(relative_path):
@@ -622,20 +622,20 @@ def main():
                     song_info = STATES["song_list"][song_id]
                     imgui.table_next_row()
                     imgui.table_set_column_index(2)
-                    # if imgui.button(lang("Delete") + f"##{song_id}"):
-                    #     delete_song(song_id)
-                    _, action_index = imgui.combo(f"##{song_id}Action", 0, [lang("Play")] + [lang("Delete")] + [f"{lang("Add to playlist:") if not is_song_in_playlist(song_id, i) else lang("Remove from playlist:")} {playlist["name"]}" for i, playlist in enumerate(STATES["settings"].get("playlists", []))])
+                    _, action_index = imgui.combo(f"##{song_id}Action", 0, [lang("Play"), lang("Open in explorer"), lang("Delete")] + [f"{lang("Add to playlist:") if not is_song_in_playlist(song_id, i) else lang("Remove from playlist:")} {playlist["name"]}" for i, playlist in enumerate(STATES["settings"].get("playlists", []))])
                     if _:
                         if action_index == 0:
                             play_song(song_id)
                         elif action_index == 1:
+                            os.startfile(os.path.join(STATES["settings"]["download_path"], song_id))
+                        elif action_index == 2:
                             delete_song(song_id)
-                            refresh_song_list()
+                            _refresh_song_list_worker()
                         else:
-                            if is_song_in_playlist(song_id, action_index - 2):
-                                remove_song_from_playlist(song_id, action_index - 2)
+                            if is_song_in_playlist(song_id, action_index - 3):
+                                remove_song_from_playlist(song_id, action_index - 3)
                             else:
-                                add_song_to_playlist(song_id, action_index - 2)
+                                add_song_to_playlist(song_id, action_index - 3)
                             refresh_song_list()
                     imgui.table_set_column_index(0)
                     selectable_flags = imgui.SELECTABLE_SPAN_ALL_COLUMNS

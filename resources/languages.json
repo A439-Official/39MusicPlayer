@@ -50,6 +50,7 @@
         "Lyrics font": "歌词字体",
         "UI font": "界面字体",
         "Restart to apply": "重启以应用",
-        "Vibrate": "抖动"
+        "Vibrate": "抖动",
+        "Open in explorer": "在资源管理器中打开"
     }
 }

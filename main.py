@@ -2,6 +2,7 @@ import pygame
 import CFVI.music
 import CFVI.draw
 import CFVI.os
+import CFVI.updater
 import imgui
 import imgui.integrations.pygame
 import OpenGL.GL
@@ -12,14 +13,14 @@ import threading
 import soundfile
 import numpy
 import sys
+
+sys.modules["importlib.metadata"].version = lambda pkg: "0.0.0"
 import moviepy
-import tkinter as tk
-from tkinter import filedialog
 
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.6.3"
+VERSION = "0.7.0"
 
 
 def resource_path(relative_path):
@@ -66,7 +67,7 @@ class DownloadThread(threading.Thread):
             print(f"[{self.song_id}][0/2]Fetching song info")
             song = CFVI.music.api.song(self.song_id)
             if song_info["privilege"]["pl"] <= 0:
-                if False:  # VIP
+                if True:  # VIP
                     for i in CFVI.music.api.song2(self.song_id):
                         song[i] = CFVI.music.api.song2(self.song_id)[i]
                 else:
@@ -193,12 +194,13 @@ def _refresh_song_list_worker():
     with LOCK:
         was_playing = STATES.get("is_playing", False)
         now_playing_id = STATES.get("now_playing")
-        STATES["song_list"] = {}
         STATES["sorted_song_ids"] = []
+        STATES["song_list"] = {}
         songs_path = STATES["settings"]["download_path"]
         if not os.path.exists(songs_path):
             os.makedirs(songs_path)
             return
+        search_text = STATES["local_search_text"].strip().lower()
         for song_id in os.listdir(songs_path):
             info_path = os.path.join(songs_path, song_id, "info.json")
             if os.path.exists(info_path):
@@ -206,7 +208,9 @@ def _refresh_song_list_worker():
                 if playlist_setting == 0 or is_song_in_playlist(song_id, playlist_setting - 1):
                     try:
                         with open(info_path, "r", encoding="utf-8") as f:
-                            STATES["song_list"][song_id] = json.load(f)
+                            song_info = json.load(f)
+                        if search_text == "" or _matches_search(song_info, search_text):
+                            STATES["song_list"][song_id] = song_info
                     except Exception as e:
                         print(f"Error loading song info {info_path}: {e}")
         STATES["sorted_song_ids"] = sorted(STATES["song_list"].keys(), key=lambda song_id: get_song_sort_key(STATES["song_list"][song_id]))
@@ -215,6 +219,15 @@ def _refresh_song_list_worker():
             pygame.mixer.music.unload()
             STATES["now_playing"] = None
             STATES["is_playing"] = False
+
+
+def _matches_search(song_info, search_text):
+    """检查歌曲信息是否匹配搜索文本"""
+    if not search_text:
+        return True
+    if search_text in str(song_info).lower():
+        return True
+    return False
 
 
 def play_song(song_id):
@@ -450,6 +463,8 @@ def is_song_in_playlist(song_id, playlist_index):
 def main():
     pygame.init()
     _screen: pygame.Surface = pygame.display.set_mode((1280, 720), pygame.DOUBLEBUF | pygame.OPENGL, vsync=1)
+    pygame.display.set_caption(f"{NAME} v{VERSION}")
+    pygame.display.set_icon(pygame.image.load(resource_path("./resources/39.png")))
     screen = pygame.Surface(_screen.get_size(), pygame.SRCALPHA)
 
     # variables
@@ -465,6 +480,7 @@ def main():
     STATES["search_results"] = []
     STATES["search_status"] = "Idle"
     STATES["search_current_page"] = 0
+    STATES["local_search_text"] = ""
     with CFVI.os.FileUnlocker(STATES["settings_path"]):
         STATES["settings"] = json.loads(open(STATES["settings_path"], "r", encoding="utf-8").read()) if os.path.exists(STATES["settings_path"]) else {}
     if "download_path" not in STATES["settings"]:
@@ -475,8 +491,6 @@ def main():
 
     texture_id = setup_opengl(_screen)
     impl, imgui_font = setup_imgui(_screen)
-    pygame.display.set_caption(f"{NAME} v{VERSION}")
-    pygame.display.set_icon(pygame.image.load(resource_path("./resources/39.png")))
     running = True
 
     # resources
@@ -526,27 +540,28 @@ def main():
         pygame.draw.aalines(screen, (255, 255, 255), False, poses, 2)
 
         if STATES["settings"].get("show_lyrics", True) and STATES["current_time"] > 0 and STATES.get("now_playing") and STATES["song_list"].get(STATES["now_playing"], {}).get("lyrics"):
-            lyric_type = "tlyrics" if STATES["settings"].get("show_tlyric", False) and "tlyrics" in STATES["song_list"][STATES["now_playing"]] else "lyrics"
-            now_lyric = 0
-            last_time = 0
-            for i in range(len(STATES["song_list"][STATES["now_playing"]][lyric_type]) + 1):
-                if i < len(STATES["song_list"][STATES["now_playing"]][lyric_type]):
-                    line = STATES["song_list"][STATES["now_playing"]][lyric_type][i]
+            with LOCK:
+                lyric_type = "tlyrics" if STATES["settings"].get("show_tlyric", False) and "tlyrics" in STATES["song_list"][STATES["now_playing"]] else "lyrics"
+                now_lyric = 0
+                last_time = 0
+                for i in range(len(STATES["song_list"][STATES["now_playing"]][lyric_type]) + 1):
+                    if i < len(STATES["song_list"][STATES["now_playing"]][lyric_type]):
+                        line = STATES["song_list"][STATES["now_playing"]][lyric_type][i]
+                        time = line["time"]
+                        if time > STATES["current_time"] / 1000:
+                            now_lyric = i - 2 + ((STATES["current_time"] / 1000 - last_time) / (time - last_time + 1e-6)) ** 0.1
+                            break
+                        last_time = time
+                    else:
+                        now_lyric = i - 2 + ((min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, STATES["current_time"] / 1000) - last_time) / (min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, STATES["song_list"][STATES["now_playing"]]["data"]["time"] / 1000) - last_time + 1e-6)) ** 0.1
+                for i in range(max(int(now_lyric), 0), min(int(now_lyric + 3), len(STATES["song_list"][STATES["now_playing"]][lyric_type]))):
+                    line = (STATES["song_list"][STATES["now_playing"]][lyric_type])[i]
                     time = line["time"]
-                    if time > STATES["current_time"] / 1000:
-                        now_lyric = i - 2 + ((STATES["current_time"] / 1000 - last_time) / (time - last_time + 1e-6)) ** 0.1
-                        break
-                    last_time = time
-                else:
-                    now_lyric = i - 2 + ((min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, STATES["current_time"] / 1000) - last_time) / (min(STATES["song_list"][STATES["now_playing"]][lyric_type][-1]["time"] + 4.39, STATES["song_list"][STATES["now_playing"]]["data"]["time"] / 1000) - last_time + 1e-6)) ** 0.1
-            for i in range(max(int(now_lyric), 0), min(int(now_lyric + 3), len(STATES["song_list"][STATES["now_playing"]][lyric_type]))):
-                line = (STATES["song_list"][STATES["now_playing"]][lyric_type])[i]
-                time = line["time"]
-                text = CFVI.draw.text_ex(font, line["text"], (255, 255, 255), min_width=screen.get_height())
-                text_burr = CFVI.draw.blur(CFVI.draw.text_ex(font, line["text"], (0, 0, 0), min_width=screen.get_height()))
-                for x, y in [(2, 0), (1, 1), (0, 2), (-1, 1), (-2, 0), (-1, -1), (0, -2), (1, -1)]:
-                    screen.blit(text_burr, (int(screen.get_height() / 2 - text_burr.get_width() / 2 + x), int(screen.get_height() / 2 + (i - now_lyric) * screen.get_height() * 0.1 - text_burr.get_height() / 2 + y)))
-                screen.blit(text, (screen.get_height() / 2 - text.get_width() / 2, screen.get_height() / 2 + (i - now_lyric) * screen.get_height() * 0.1 - text.get_height() / 2))
+                    text = CFVI.draw.text_ex(font, line["text"], (255, 255, 255), min_width=screen.get_height())
+                    text_burr = CFVI.draw.blur(CFVI.draw.text_ex(font, line["text"], (0, 0, 0), min_width=screen.get_height()))
+                    for x, y in [(2, 0), (1, 1), (0, 2), (-1, 1), (-2, 0), (-1, -1), (0, -2), (1, -1)]:
+                        screen.blit(text_burr, (int(screen.get_height() / 2 - text_burr.get_width() / 2 + x), int(screen.get_height() / 2 + (i - now_lyric) * screen.get_height() * 0.1 - text_burr.get_height() / 2 + y)))
+                    screen.blit(text, (screen.get_height() / 2 - text.get_width() / 2, screen.get_height() / 2 + (i - now_lyric) * screen.get_height() * 0.1 - text.get_height() / 2))
 
         # imgui
         imgui.new_frame()
@@ -600,6 +615,11 @@ def main():
                 if imgui.button(lang("Next"), 128, 32):
                     play_next_song()
 
+                STATES["local_search_text"] = imgui.input_text("##LocalSearchText", STATES.get("local_search_text", ""), 256)[1]
+                imgui.same_line()
+                if imgui.button(lang("Search")):
+                    refresh_song_list()
+
                 # playlist here
                 _, playlist_index = imgui.combo(lang("Playlists"), STATES["settings"].get("playlist", 0), [lang("All")] + [playlist["name"] for playlist in STATES["settings"].get("playlists", [])] + [lang("Delete current")])
                 STATES["new_playlist_name"] = imgui.input_text("##NewPlaylistName", STATES.get("new_playlist_name", ""), 256)[1]
@@ -619,32 +639,32 @@ def main():
                 imgui.table_setup_column(lang("Action"))
                 imgui.table_headers_row()
                 for song_id in STATES.get("sorted_song_ids", []):
-                    song_info = STATES["song_list"][song_id]
-                    imgui.table_next_row()
-                    imgui.table_set_column_index(2)
-                    _, action_index = imgui.combo(f"##{song_id}Action", 0, [lang("Play"), lang("Open in explorer"), lang("Delete")] + [f"{lang("Add to playlist:") if not is_song_in_playlist(song_id, i) else lang("Remove from playlist:")} {playlist["name"]}" for i, playlist in enumerate(STATES["settings"].get("playlists", []))])
-                    if _:
-                        if action_index == 0:
-                            play_song(song_id)
-                        elif action_index == 1:
-                            os.startfile(os.path.join(STATES["settings"]["download_path"], song_id))
-                        elif action_index == 2:
-                            delete_song(song_id)
-                            _refresh_song_list_worker()
-                        else:
-                            if is_song_in_playlist(song_id, action_index - 3):
-                                remove_song_from_playlist(song_id, action_index - 3)
+                    if song_info := STATES["song_list"].get(song_id, None):
+                        imgui.table_next_row()
+                        imgui.table_set_column_index(2)
+                        _, action_index = imgui.combo(f"##{song_id}Action", 0, [lang("Play"), lang("Open in explorer"), lang("Delete")] + [f"{lang("Add to playlist:") if not is_song_in_playlist(song_id, i) else lang("Remove from playlist:")} {playlist["name"]}" for i, playlist in enumerate(STATES["settings"].get("playlists", []))])
+                        if _:
+                            if action_index == 0:
+                                play_song(song_id)
+                            elif action_index == 1:
+                                os.startfile(os.path.join(STATES["settings"]["download_path"], song_id))
+                            elif action_index == 2:
+                                delete_song(song_id)
+                                _refresh_song_list_worker()
                             else:
-                                add_song_to_playlist(song_id, action_index - 3)
-                            refresh_song_list()
-                    imgui.table_set_column_index(0)
-                    selectable_flags = imgui.SELECTABLE_SPAN_ALL_COLUMNS
-                    if song_id == STATES["now_playing"]:
-                        selectable_flags |= imgui.SELECTABLE_DONT_CLOSE_POPUPS
-                    if imgui.selectable(f"{song_info.get('name', '')}##{song_id}", song_id == STATES["now_playing"], selectable_flags)[0]:
-                        play_song(song_id)
-                    imgui.table_set_column_index(1)
-                    imgui.text(" & ".join(song_info.get("artist", [])))
+                                if is_song_in_playlist(song_id, action_index - 3):
+                                    remove_song_from_playlist(song_id, action_index - 3)
+                                else:
+                                    add_song_to_playlist(song_id, action_index - 3)
+                                refresh_song_list()
+                        imgui.table_set_column_index(0)
+                        selectable_flags = imgui.SELECTABLE_SPAN_ALL_COLUMNS
+                        if song_id == STATES["now_playing"]:
+                            selectable_flags |= imgui.SELECTABLE_DONT_CLOSE_POPUPS
+                        if imgui.selectable(f"{song_info.get('name', '')}##{song_id}", song_id == STATES["now_playing"], selectable_flags)[0]:
+                            play_song(song_id)
+                        imgui.table_set_column_index(1)
+                        imgui.text(" & ".join(song_info.get("artist", [])))
                 imgui.end_table()
                 imgui.end_child()
                 imgui.end_tab_item()
@@ -707,9 +727,9 @@ def main():
                     STATES["settings"]["download_path"] = download_path
                     imgui.same_line()
                     if imgui.button(lang("Browse")):
-                        root = tk.Tk()
+                        root = tkinter.Tk()
                         root.withdraw()
-                        folder_path = filedialog.askdirectory()
+                        folder_path = thinker.filedialog.askdirectory()
                         if folder_path:
                             STATES["settings"]["download_path"] = folder_path
                         root.destroy()
@@ -749,8 +769,28 @@ def main():
             f.write(json.dumps(STATES["settings"]))
             f.flush()
     CFVI.os.lock_file(STATES["settings_path"])
+    CFVI.os.lock_file(STATES["settings_path"] + "/..")
     return
 
 
+def update(path):
+    try:
+        print(f"Updating...")
+        if info := CFVI.updater.check_update(NAME, VERSION):
+            if url := info["assets"][0].get("browser_download_url"):
+                print(f"Downloading update: {info['tag_name']}")
+                r = requests.get(url, timeout=60)
+                open(path, "wb").write(r.content)
+                print(f"Update downloaded successfully!")
+        else:
+            print(f"No update available")
+    except:
+        print(f"Failed to check for updates")
+
+
 if __name__ == "__main__":
+    # start update
+    path = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\NewUpdate"
+    threading.Thread(target=update, args=(path,), daemon=True).start()
     main()
+    threading.Thread(target=CFVI.updater.update, args=(path,)).start()

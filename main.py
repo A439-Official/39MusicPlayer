@@ -13,6 +13,7 @@ import threading
 import soundfile
 import numpy
 import sys
+import subprocess
 
 sys.modules["importlib.metadata"].version = lambda pkg: "0.0.0"
 import moviepy
@@ -20,7 +21,7 @@ import moviepy
 
 NAME = "39MusicPlayer"
 CREATOR = "A439"
-VERSION = "0.7.0"
+VERSION = "0.7.1"
 
 
 def resource_path(relative_path):
@@ -481,6 +482,7 @@ def main():
     STATES["search_status"] = "Idle"
     STATES["search_current_page"] = 0
     STATES["local_search_text"] = ""
+    CFVI.os.unlock_file(os.path.join(STATES["settings_path"], ".."))
     with CFVI.os.FileUnlocker(STATES["settings_path"]):
         STATES["settings"] = json.loads(open(STATES["settings_path"], "r", encoding="utf-8").read()) if os.path.exists(STATES["settings_path"]) else {}
     if "download_path" not in STATES["settings"]:
@@ -769,28 +771,51 @@ def main():
             f.write(json.dumps(STATES["settings"]))
             f.flush()
     CFVI.os.lock_file(STATES["settings_path"])
-    CFVI.os.lock_file(STATES["settings_path"] + "/..")
-    return
 
 
-def update(path):
-    try:
-        print(f"Updating...")
-        if info := CFVI.updater.check_update(NAME, VERSION):
-            if url := info["assets"][0].get("browser_download_url"):
-                print(f"Downloading update: {info['tag_name']}")
-                r = requests.get(url, timeout=60)
-                open(path, "wb").write(r.content)
-                print(f"Update downloaded successfully!")
-        else:
-            print(f"No update available")
-    except:
-        print(f"Failed to check for updates")
+def update_a(path):
+    if not os.path.exists(path):
+        try:
+            print(f"Updating...")
+            if info := CFVI.updater.check_update(NAME, VERSION):
+                if url := info["assets"][0].get("browser_download_url"):
+                    print(f"Downloading update: {info['tag_name']}")
+                    r = requests.get(url, verify=False)
+                    open(path, "wb").write(r.content)
+                    print(f"Update downloaded successfully!")
+            else:
+                print(f"No update available")
+        except Exception as e:
+            print(f"Failed to check for updates: {e}")
+
+
+def update_b(path):
+    if os.path.exists(path):
+        current_path = sys.executable if hasattr(sys, "frozen") else sys.argv[0]
+        current_dir = os.path.dirname(current_path)
+        try:
+            bat_content = f"""@echo off
+timeout /t 2 /nobreak >nul
+taskkill /F /PID {os.getpid()} >nul 2>&1
+move /Y "{path}" "{current_path}"
+start "" "{current_path}"
+del "%~f0"
+"""
+            bat_path = os.path.join(current_dir, "update.bat")
+            with open(bat_path, "w") as f:
+                f.write(bat_content)
+            print(f"Update will be installed after restart...")
+            subprocess.Popen([bat_path], shell=True, creationflags=subprocess.CREATE_NO_WINDOW)
+            sys.exit(0)
+        except Exception as e:
+            print(f"Failed to install update: {e}")
+    else:
+        print(f"No update found at {path}")
 
 
 if __name__ == "__main__":
     # start update
-    path = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\NewUpdate"
-    threading.Thread(target=update, args=(path,), daemon=True).start()
+    path = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\NewUpdate.exe"
+    threading.Thread(target=update_a, args=(path,)).start()
     main()
-    threading.Thread(target=CFVI.updater.update, args=(path,)).start()
+    update_b(path)

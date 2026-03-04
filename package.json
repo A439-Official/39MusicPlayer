@@ -1,0 +1,55 @@
+{
+    "name": "39musicplayer",
+    "version": "1.0.0",
+    "description": "",
+    "main": "index.js",
+    "scripts": {
+        "start": "electron .",
+        "build": "electron-builder",
+        "test": "echo \"Error: no test specified\" && exit 1"
+    },
+    "repository": {
+        "type": "git",
+        "url": "git+https://github.com/A439-Official/39MusicPlayer.git"
+    },
+    "author": "",
+    "license": "ISC",
+    "bugs": {
+        "url": "https://github.com/A439-Official/39MusicPlayer/issues"
+    },
+    "homepage": "https://github.com/A439-Official/39MusicPlayer#readme",
+    "devDependencies": {
+        "electron": "^40.7.0",
+        "electron-builder": "^26.8.1",
+        "electron-updater": "^6.8.3"
+    },
+    "build": {
+        "appId": "com.a439.39musicplayer",
+        "productName": "39MusicPlayer",
+        "directories": {
+            "output": "dist"
+        },
+        "win": {
+            "target": [
+                {
+                    "target": "nsis",
+                    "arch": [
+                        "x64",
+                        "ia32"
+                    ]
+                }
+            ],
+            "requestedExecutionLevel": "asInvoker"
+        },
+        "nsis": {
+            "oneClick": false,
+            "allowToChangeInstallationDirectory": true,
+            "createDesktopShortcut": true,
+            "createStartMenuShortcut": true,
+            "shortcutName": "39MusicPlayer",
+            "installerIcon": "resources/icon.ico",
+            "uninstallerIcon": "resources/icon.ico",
+            "installerHeaderIcon": "resources/icon.ico"
+        }
+    }
+}

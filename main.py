@@ -62,60 +62,61 @@ class DownloadThread(threading.Thread):
     def run(self):
         with LOCK:
             STATES["download_status"][self.song_id] = "Downloading"
-        try:
-            path = f"{STATES["settings"]["download_path"]}\\{self.song_id}"
-            song_info = CFVI.music.api.info(self.song_id)
-            print(f"[{self.song_id}][0/2]Fetching song info")
-            song = CFVI.music.api.song(self.song_id)
-            if song_info["privilege"]["pl"] <= 0:
-                if True:  # VIP
-                    for i in CFVI.music.api.song2(self.song_id):
-                        song[i] = CFVI.music.api.song2(self.song_id)[i]
-                else:
-                    print(f"[{self.song_id}][0/2]Song is not available")
-                    with LOCK:
-                        STATES["download_status"][self.song_id] = "Error: No privilege!"
-                    return
-            song_data = requests.get(song["url"]).content
-            print(f"[{self.song_id}][1/2]Downloaded song")
-            song.pop("url")
-            pic_url = song_info["pic"]
-            pic_data = requests.get(pic_url).content
-            print(f"[{self.song_id}][2/2]Downloaded picture")
-            song_info.pop("pic")
-            song_info["data"] = song
-            lyrics = CFVI.music.api.lyric(self.song_id)
-            if lyrics:
-                for i in lyrics:
-                    song_info[i] = lyrics[i]
-            mv = CFVI.music.api.mv(song_info["mv"]) if song_info.get("mv") else None
-            if mv:
-                song_info["mv"] = mv["url"]
-            mv_data = requests.get(mv["url"]).content if mv else None
-            if mv_data:
-                print(f"[{self.song_id}][3/3]Downloaded MV")
-            if not os.path.exists(path):
-                os.makedirs(path)
-            with open(f"{path}\\info.json", "w", encoding="utf-8") as f:
-                json.dump(song_info, f)
-            with open(f"{path}\\song.{song_info['data']['type']}", "wb") as f:
-                f.write(song_data)
-            with open(f"{path}\\pic.jpg", "wb") as f:
-                f.write(pic_data)
-            if mv_data:
-                with open(f"{path}\\mv.mp4", "wb") as f:
-                    f.write(mv_data)
-            with open(f"{path}\\{CFVI.os.safe_filename(" & ".join(song_info['artist']) + "-" + song_info['name'])}", "w") as f:
-                f.write("")
-            with LOCK:
-                STATES["download_status"][self.song_id] = "Completed"
-                if self.song_id in STATES["download_queue"]:
-                    STATES["download_queue"].remove(self.song_id)
-                refresh_song_list()
-        except Exception as e:
-            with LOCK:
-                STATES["download_status"][self.song_id] = f"Error: {str(e)}"
-            print(f"Failed to download song: {e}")
+        # try:
+        path = f"{STATES["settings"]["download_path"]}\\{self.song_id}"
+        song_info = CFVI.music.api.info(self.song_id)
+        print(f"[{self.song_id}][0/2]Fetching song info")
+        song = CFVI.music.api.song(self.song_id)
+        if song_info["privilege"]["pl"] <= 0:
+            if True:  # VIP
+                for i in CFVI.music.api.song2(self.song_id):
+                    song[i] = CFVI.music.api.song2(self.song_id)[i]
+            else:
+                print(f"[{self.song_id}][0/2]Song is not available")
+                with LOCK:
+                    STATES["download_status"][self.song_id] = "Error: No privilege!"
+                return
+        song_data = requests.get(song["url"]).content
+        print(f"[{self.song_id}][1/2]Downloaded song")
+        song.pop("url")
+        pic_url = song_info["pic"]
+        pic_data = requests.get(pic_url).content
+        print(f"[{self.song_id}][2/2]Downloaded picture")
+        song_info.pop("pic")
+        song_info["data"] = song
+        lyrics = CFVI.music.api.lyric(self.song_id)
+        if lyrics:
+            for i in lyrics:
+                song_info[i] = lyrics[i]
+        mv = CFVI.music.api.mv(song_info["mv"]) if song_info.get("mv") else None
+        if mv:
+            song_info["mv"] = mv["url"]
+        mv_data = requests.get(mv["url"]).content if mv else None
+        if mv_data:
+            print(f"[{self.song_id}][3/3]Downloaded MV")
+        if not os.path.exists(path):
+            os.makedirs(path)
+        with open(f"{path}\\info.json", "w", encoding="utf-8") as f:
+            json.dump(song_info, f)
+        with open(f"{path}\\song.{song_info['data']['type']}", "wb") as f:
+            f.write(song_data)
+        with open(f"{path}\\pic.jpg", "wb") as f:
+            f.write(pic_data)
+        if mv_data:
+            with open(f"{path}\\mv.mp4", "wb") as f:
+                f.write(mv_data)
+        with open(f"{path}\\{CFVI.os.safe_filename(" & ".join(song_info['artist']) + "-" + song_info['name'])}", "w") as f:
+            f.write("")
+        with LOCK:
+            STATES["download_status"][self.song_id] = "Completed"
+            if self.song_id in STATES["download_queue"]:
+                STATES["download_queue"].remove(self.song_id)
+            refresh_song_list()
+
+    # except Exception as e:
+    #     with LOCK:
+    #         STATES["download_status"][self.song_id] = f"Error: {str(e)}"
+    #     print(f"Failed to download song: {e}")
 
 
 def redownload_all_songs():
@@ -814,8 +815,11 @@ del "%~f0"
 
 
 if __name__ == "__main__":
-    # start update
-    path = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\NewUpdate.exe"
-    threading.Thread(target=update_a, args=(path,)).start()
-    main()
-    update_b(path)
+    if getattr(sys, "frozen", False):
+        # start update
+        path = f"{os.environ.get('APPDATA')}\\{CREATOR}\\{NAME}\\NewUpdate.exe"
+        threading.Thread(target=update_a, args=(path,)).start()
+        main()
+        update_b(path)
+    else:
+        main()

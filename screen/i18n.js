@@ -1,4 +1,4 @@
-let currentLanguage = "en";
+let currentLanguage = "English";
 let languages = null;
 let languageSelectCustom = null;
 
@@ -16,7 +16,7 @@ async function loadLanguages() {
 }
 
 function translate(text) {
-    if (currentLanguage === "en") {
+    if (currentLanguage === "English") {
         return text;
     }
     if (languages && languages[currentLanguage]) {
@@ -39,28 +39,27 @@ function applyTranslations() {
             element.textContent = translated;
         }
     });
-    if (currentLanguage === "en") {
+    if (currentLanguage === "English") {
         document.documentElement.lang = "en";
     } else {
         document.documentElement.lang = "zh-CN";
     }
 }
 
-async function loadLanguage(langIndex) {
+async function loadLanguage(langCode) {
     if (!languages) {
         await loadLanguages();
     }
 
-    const languageKeys = ["en", ...Object.keys(languages)];
-    if (langIndex < 0 || langIndex >= languageKeys.length) {
-        langIndex = 0;
+    const languageKeys = ["English", ...Object.keys(languages)];
+    if (!languageKeys.includes(langCode)) {
+        langCode = "English";
     }
 
-    const langKey = languageKeys[langIndex];
-    currentLanguage = langKey;
+    currentLanguage = langCode;
 
     try {
-        await window.electronAPI.setConfig("language", langIndex);
+        await window.electronAPI.setConfig("language", langCode);
     } catch (e) {
         console.warn("Failed to save language to config:", e);
     }
@@ -74,7 +73,7 @@ function updateLanguageSelector() {
     const container = document.getElementById("language-select-custom");
     if (!container || !languages) return;
 
-    const languageKeys = ["en", ...Object.keys(languages)];
+    const languageKeys = ["English", ...Object.keys(languages)];
     const languageNames = ["English", ...Object.keys(languages)];
     const currentIndex = languageKeys.indexOf(currentLanguage);
 
@@ -85,9 +84,12 @@ function updateLanguageSelector() {
 
     if (typeof CustomSelect !== "undefined") {
         languageSelectCustom = new CustomSelect(container, languageNames, currentIndex >= 0 ? currentIndex : 0, (selectedIndex) => {
-            const selectedLangIndex = selectedIndex;
-            if (selectedLangIndex !== currentIndex) {
-                loadLanguage(selectedLangIndex);
+            // 将选中的索引转换为语言代码字符串
+            if (selectedIndex >= 0 && selectedIndex < languageKeys.length) {
+                const selectedLangCode = languageKeys[selectedIndex];
+                if (selectedLangCode !== currentLanguage) {
+                    loadLanguage(selectedLangCode);
+                }
             }
         });
     }
@@ -98,11 +100,11 @@ async function initI18n() {
         await loadLanguages();
 
         try {
-            const savedLanguageIndex = await window.electronAPI.getConfig("language", 0);
-            await loadLanguage(savedLanguageIndex);
+            const savedLanguage = await window.electronAPI.getConfig("language", "English");
+            await loadLanguage(savedLanguage);
         } catch (e) {
             console.warn("Failed to load saved language:", e);
-            await loadLanguage(0);
+            await loadLanguage("English");
         }
 
         resolve();

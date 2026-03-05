@@ -1,5 +1,5 @@
 {
-    "zh-cn": {
+    "简体中文": {
         "Download": "下载",
         "Songs": "歌曲",
         "Albums": "专辑",
@@ -51,6 +51,8 @@
         "UI font": "界面字体",
         "Restart to apply": "重启以应用",
         "Vibrate": "抖动",
-        "Open in explorer": "在资源管理器中打开"
+        "Open in explorer": "在资源管理器中打开",
+        "Home": "首页",
+        "Playlist": "歌单"
     }
 }

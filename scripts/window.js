@@ -18,10 +18,6 @@ class WindowManager {
             icon: path.join(__dirname, "../resources/textures/icon.png"),
             webPreferences: {
                 preload: path.join(__dirname, "../scripts/preload.js"),
-                nodeIntegration: true,
-                contextIsolation: false,
-                sandbox: false,
-                backgroundThrottling: false,
             },
             autoHideMenuBar: true,
         });

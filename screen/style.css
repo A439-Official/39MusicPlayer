@@ -90,8 +90,12 @@ body {
     display: block;
 }
 
+.setting-item {
+    margin-bottom: 32px;
+}
 .setting-item p {
     color: var(--tab-content-text);
+    margin: 12px;
 }
 
 .custom-select {
@@ -160,6 +164,16 @@ body {
     background-color: var(--select-option-hover);
 }
 
+.custom-select-option:last-child {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
+.custom-select-option:last-child:hover {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
+}
+
 .custom-select-option-selected {
     background-color: var(--select-option-selected);
     color: var(--select-option-selected-text);
@@ -167,4 +181,9 @@ body {
 
 .custom-select-option-selected:hover {
     background-color: var(--select-option-selected);
+}
+
+.custom-select-option-selected:last-child {
+    border-bottom-left-radius: 6px;
+    border-bottom-right-radius: 6px;
 }

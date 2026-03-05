@@ -5,9 +5,9 @@
     </head>
     <body>
         <div class="tab-list">
-            <span class="tab-title active" id="tab-home">Home</span>
-            <span class="tab-title" id="tab-playlist">Playlist</span>
-            <span class="tab-title" id="tab-settings">Settings</span>
+            <span class="tab-title active" id="tab-home" data-i18n="Home"></span>
+            <span class="tab-title" id="tab-playlist" data-i18n="Playlist"></span>
+            <span class="tab-title" id="tab-settings" data-i18n="Settings"></span>
         </div>
         <div class="tab-content active" id="content-home">
             <p>Tab: Home</p>
@@ -16,8 +16,12 @@
             <p>Tab: Playlist</p>
         </div>
         <div class="tab-content" id="content-settings">
+            <div class="setting-item" id="setting-language">
+                <p data-i18n="Language"></p>
+                <div id="language-select-custom"></div>
+            </div>
             <div class="setting-item" id="setting-theme">
-                <p>Theme:</p>
+                <p data-i18n="Theme"></p>
                 <div id="theme-select-custom"></div>
             </div>
         </div>
@@ -26,4 +30,5 @@
 
 <script src="../scripts/select.js"></script>
 <script src="theme.js"></script>
+<script src="i18n.js"></script>
 <script src="script.js"></script>

@@ -1,5 +1,3 @@
-const { ipcRenderer } = require("electron");
-
 let theme = "Default";
 let themes = null;
 let themeSelectCustom = null;
@@ -11,7 +9,6 @@ async function loadThemes() {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         themes = await response.json();
-        console.log("Themes loaded:", Object.keys(themes));
         if (!themes[theme]) {
             theme = "Default";
         }
@@ -31,7 +28,6 @@ function applyTheme(themeName) {
     Object.entries(themeData).forEach(([property, value]) => {
         root.style.setProperty(property, value);
     });
-    console.log(`Theme "${themeName}" applied`);
     return true;
 }
 
@@ -42,7 +38,7 @@ async function loadTheme(themeName) {
     if (applyTheme(themeName)) {
         theme = themeName;
         try {
-            await ipcRenderer.invoke("set-config", "theme", themeName);
+            await window.electronAPI.setConfig("theme", themeName);
         } catch (e) {
             console.warn("Failed to save theme to config:", e);
         }
@@ -74,7 +70,7 @@ function initTheme() {
         await loadThemes();
 
         try {
-            const savedTheme = await ipcRenderer.invoke("get-config", "theme", "Default");
+            const savedTheme = await window.electronAPI.getConfig("theme", "Default");
             if (savedTheme && savedTheme !== theme) {
                 await loadTheme(savedTheme);
             } else {
@@ -92,5 +88,4 @@ function initTheme() {
 
 document.addEventListener("DOMContentLoaded", async () => {
     await initTheme();
-    console.log("Theme system initialized");
 });

@@ -13,7 +13,10 @@
         "--select-option": "#5cd1c8",
         "--select-option-hover": "#6fdad2",
         "--select-option-selected": "#94e3de",
-        "--select-option-selected-text": "#000000"
+        "--select-option-selected-text": "#000000",
+        "--input": "#94e3de",
+        "--input-border": "#5cd1c8",
+        "--input-text": "#000000"
     },
     "Dark": {
         "--tab-list": "#1a1a1a",
@@ -29,7 +32,10 @@
         "--select-option": "#333333",
         "--select-option-hover": "#444444",
         "--select-option-selected": "#555555",
-        "--select-option-selected-text": "#ffffff"
+        "--select-option-selected-text": "#ffffff",
+        "--input": "#444444",
+        "--input-border": "#333333",
+        "--input-text": "#ffffff"
     },
     "Light": {
         "--tab-list": "#f0f0f0",
@@ -45,6 +51,9 @@
         "--select-option": "#e0e0e0",
         "--select-option-hover": "#d0d0d0",
         "--select-option-selected": "#f5f5f5",
-        "--select-option-selected-text": "#000000"
+        "--select-option-selected-text": "#000000",
+        "--input": "#f5f5f5",
+        "--input-border": "#e0e0e0",
+        "--input-text": "#000000"
     }
 }

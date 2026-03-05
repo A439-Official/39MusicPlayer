@@ -14,7 +14,16 @@
             <p>Tab: Home</p>
         </div>
         <div class="tab-content" id="content-search">
-            <p>Tab: Search</p>
+            <input type="text" id="search-input" />
+            <table id="search-results-table">
+                <thead>
+                    <tr>
+                        <th data-i18n="Title">Title</th>
+                        <th data-i18n="Artist">Artist</th>
+                    </tr>
+                </thead>
+                <tbody id="search-results-body"></tbody>
+            </table>
         </div>
         <div class="tab-content" id="content-playlist">
             <p>Tab: Playlist</p>
@@ -30,7 +39,7 @@
             </div>
         </div>
         <div class="footer-tabs">
-            <img src="../resources/39.png" class="footer-img">
+            <img src="../resources/39.png" class="footer-img" />
         </div>
     </body>
 </html>

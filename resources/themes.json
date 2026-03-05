@@ -44,7 +44,7 @@
         "--select-hover": "#d0d0d0",
         "--select-option": "#e0e0e0",
         "--select-option-hover": "#d0d0d0",
-        "--select-option-selected": "#ffffff",
+        "--select-option-selected": "#f5f5f5",
         "--select-option-selected-text": "#000000"
     }
 }

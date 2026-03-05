@@ -97,6 +97,7 @@ body {
 .setting-item {
     margin-bottom: 32px;
 }
+
 .setting-item p {
     color: var(--tab-content-text);
     margin: 12px;
@@ -190,4 +191,25 @@ body {
 .custom-select-option-selected:last-child {
     border-bottom-left-radius: 6px;
     border-bottom-right-radius: 6px;
+}
+
+.footer-tabs {
+    background-color: var(--tab-list);
+    box-shadow: var(--tab-title-active-text) 0px 4px 8px;
+    bottom: 0px;
+    color: var(--tab-title-active-text);
+    width: 100%;
+    height: 80px;
+    position: fixed;
+    transition: background-color 0.3s;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.footer-tabs img {
+    width: 50px;
+    height: 50px;
+    margin: 20px;
+    border: 2px solid rgb(233, 233, 233);
 }

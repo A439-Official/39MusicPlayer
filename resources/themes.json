@@ -1,13 +1,19 @@
 {
     "Default": {
         "--tab-list": "#39c5bb",
-        "--tab-title": "#7dd1cb",
+        "--tab-title": "#5cd1c8",
         "--tab-title-text": "#ffffff",
-        "--tab-title-hover": "#88dbd6",
-        "--tab-title-active": "#ffffff",
+        "--tab-title-hover": "#6fdad2",
+        "--tab-title-active": "#94e3de",
         "--tab-title-active-text": "#000000",
-        "--tab-content": "#5c5c5c",
-        "--tab-content-text": "#ffffff"
+        "--tab-content": "#2a8c85",
+        "--tab-content-text": "#ffffff",
+        "--select": "#5cd1c8",
+        "--select-hover": "#6fdad2",
+        "--select-option": "#5cd1c8",
+        "--select-option-hover": "#6fdad2",
+        "--select-option-selected": "#94e3de",
+        "--select-option-selected-text": "#000000"
     },
     "Dark": {
         "--tab-list": "#1a1a1a",
@@ -17,7 +23,13 @@
         "--tab-title-active": "#555555",
         "--tab-title-active-text": "#ffffff",
         "--tab-content": "#2d2d2d",
-        "--tab-content-text": "#e0e0e0"
+        "--tab-content-text": "#e0e0e0",
+        "--select": "#333333",
+        "--select-hover": "#444444",
+        "--select-option": "#333333",
+        "--select-option-hover": "#444444",
+        "--select-option-selected": "#555555",
+        "--select-option-selected-text": "#ffffff"
     },
     "Light": {
         "--tab-list": "#f0f0f0",
@@ -27,6 +39,12 @@
         "--tab-title-active": "#ffffff",
         "--tab-title-active-text": "#000000",
         "--tab-content": "#ffffff",
-        "--tab-content-text": "#333333"
+        "--tab-content-text": "#333333",
+        "--select": "#e0e0e0",
+        "--select-hover": "#d0d0d0",
+        "--select-option": "#e0e0e0",
+        "--select-option-hover": "#d0d0d0",
+        "--select-option-selected": "#ffffff",
+        "--select-option-selected-text": "#000000"
     }
 }

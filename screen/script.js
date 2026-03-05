@@ -2,6 +2,7 @@ const { ipcRenderer } = require("electron");
 
 let theme = "Default";
 let themes = null;
+let themeSelectCustom = null;
 
 async function loadThemes() {
     try {
@@ -51,27 +52,33 @@ async function loadTheme(themeName) {
     return false;
 }
 
-// 更新下拉菜单选项
-function updateThemeSelector(selectElement) {
-    if (!selectElement) {
-        selectElement = document.getElementById("theme-select");
+// 更新主题选择器（自定义下拉列表）
+function updateThemeSelector() {
+    const container = document.getElementById("theme-select-custom");
+    if (!container || !themes) return;
+
+    const themeNames = Object.keys(themes);
+    const currentIndex = themeNames.indexOf(theme);
+    
+    if (themeSelectCustom) {
+        // 如果已经存在实例，更新选项和选中状态
+        // 注意：CustomSelect类不支持动态更新选项，所以我们需要重新创建
+        themeSelectCustom = null;
+        container.innerHTML = "";
     }
-    if (!selectElement) return;
-
-    // 清空现有选项
-    selectElement.innerHTML = "";
-
-    if (themes) {
-        Object.keys(themes).forEach((themeName) => {
-            const option = document.createElement("option");
-            option.value = themeName;
-            option.textContent = themeName;
-            if (themeName === theme) {
-                option.selected = true;
+    
+    // 创建自定义下拉列表
+    themeSelectCustom = new CustomSelect(
+        container,
+        themeNames,
+        currentIndex >= 0 ? currentIndex : 0,
+        (selectedIndex) => {
+            const selectedTheme = themeNames[selectedIndex];
+            if (selectedTheme && selectedTheme !== theme) {
+                loadTheme(selectedTheme);
             }
-            selectElement.appendChild(option);
-        });
-    }
+        }
+    );
 }
 
 // 初始化
@@ -106,13 +113,4 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     // 填充主题选择器选项
     updateThemeSelector();
-
-    // 为主题选择器添加事件监听
-    const themeSelect = document.getElementById("theme-select");
-    if (themeSelect) {
-        themeSelect.addEventListener("change", async (e) => {
-            const newTheme = e.target.value;
-            await loadTheme(newTheme);
-        });
-    }
 });

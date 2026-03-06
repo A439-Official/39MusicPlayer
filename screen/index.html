@@ -1,67 +1,75 @@
 <!doctype html>
 <html lang="en">
+    <head>
+        <link rel="stylesheet" href="style.css" />
+    </head>
 
-<head>
-    <link rel="stylesheet" href="style.css" />
-</head>
-
-<body>
-    <div class="tab-list">
-        <span class="tab-title active" id="tab-home" data-i18n="Home"></span>
-        <span class="tab-title" id="tab-search" data-i18n="Search"></span>
-        <span class="tab-title" id="tab-playlist" data-i18n="Playlist"></span>
-        <span class="tab-title" id="tab-settings" data-i18n="Settings"></span>
-    </div>
-    <div class="tab-content active" id="content-home">
-        <p>Tab: Home</p>
-    </div>
-    <div class="tab-content" id="content-search">
-        <input type="text" id="search-input" />
-        <table id="search-results-table">
-            <thead>
-                <tr>
-                    <th data-i18n="Title">Title</th>
-                    <th data-i18n="Artist">Artist</th>
-                </tr>
-            </thead>
-            <tbody id="search-results-body"></tbody>
-        </table>
-    </div>
-    <div class="tab-content" id="content-playlist">
-        <p>Tab: Playlist</p>
-    </div>
-    <div class="tab-content" id="content-settings">
-        <div class="setting-item" id="setting-language">
-            <p data-i18n="Language"></p>
-            <div id="language-select-custom"></div>
+    <body>
+        <div class="tab-list">
+            <span
+                class="tab-title active"
+                id="tab-home"
+                data-i18n="Home"
+            ></span>
+            <span class="tab-title" id="tab-search" data-i18n="Search"></span>
+            <span
+                class="tab-title"
+                id="tab-playlist"
+                data-i18n="Playlist"
+            ></span>
+            <span
+                class="tab-title"
+                id="tab-settings"
+                data-i18n="Settings"
+            ></span>
         </div>
-        <div class="setting-item" id="setting-theme">
-            <p data-i18n="Theme"></p>
-            <div id="theme-select-custom"></div>
+        <div class="tab-content active" id="content-home">
+            <p>Tab: Home</p>
         </div>
-    </div>
-    <div class="footer-tabs">
-        <img src="../resources/39.png" class="footer-img" />
-        <div class="content-box">
-            <div class="content">
-                <p>曲名</p>
-                <span style="margin-left: 15px;">作者</span>
+        <div class="tab-content" id="content-search">
+            <input type="text" id="search-input" />
+            <table id="search-results-table">
+                <thead>
+                    <tr>
+                        <th data-i18n="Title">Title</th>
+                        <th data-i18n="Artist">Artist</th>
+                    </tr>
+                </thead>
+                <tbody id="search-results-body"></tbody>
+            </table>
+        </div>
+        <div class="tab-content" id="content-playlist">
+            <p>Tab: Playlist</p>
+        </div>
+        <div class="tab-content" id="content-settings">
+            <div class="setting-item" id="setting-language">
+                <p data-i18n="Language"></p>
+                <div id="language-select-custom"></div>
             </div>
-            <div class="seek-bar">
-                <input type="range" id="" min="0" max="100" value="0">
-                <span>
-                    <e>00:00</e>&nbsp;/&nbsp;00:00
-                </span>
+            <div class="setting-item" id="setting-theme">
+                <p data-i18n="Theme"></p>
+                <div id="theme-select-custom"></div>
             </div>
         </div>
-        <div class="buttons">
-            <a>上</a>
-            <a>=</a>
-            <a>下</a>
+        <div class="footer-tabs">
+            <img src="../resources/39.png" class="footer-img" />
+            <div class="content-box">
+                <div class="content">
+                    <p>曲名</p>
+                    <span style="margin-left: 15px">作者</span>
+                </div>
+                <div class="seek-bar">
+                    <input type="range" id="" min="0" max="100" value="0" />
+                    <span> <e>00:00</e>&nbsp;/&nbsp;00:00 </span>
+                </div>
+            </div>
+            <div class="buttons">
+                <a>上</a>
+                <a>=</a>
+                <a>下</a>
+            </div>
         </div>
-    </div>
-</body>
-
+    </body>
 </html>
 
 <script src="../scripts/select.js"></script>

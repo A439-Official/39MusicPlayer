@@ -215,6 +215,17 @@ body {
     border: 2px solid rgb(233, 233, 233);
 }
 
+.content {
+    color: var(--tab-title-text);
+    display: grid;
+    grid-template-columns: auto auto auto;
+    justify-content: start;
+}
+
+.buttons {
+    margin: 16px;
+}
+
 #search-input {
     padding: 12px 16px;
     width: 100%;

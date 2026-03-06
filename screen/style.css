@@ -212,7 +212,7 @@ body {
     width: 50px;
     height: 50px;
     margin: 20px;
-    border: 2px solid rgb(233, 233, 233);
+    border: 2px solid rgb(255, 255, 255);
 }
 
 .content {
@@ -220,10 +220,38 @@ body {
     display: grid;
     grid-template-columns: auto auto auto;
     justify-content: start;
+    align-items: end;
+}
+
+.content p {
+    font-size: 20px;
+    font-weight: 300;
+}
+
+.content  span {
+    font-size: 15px;
+    margin-left: 15px;
+}
+
+.seek-bar {
+    display: grid;
+    align-items: stretch;
+    grid-template-columns: auto auto;
+}
+
+.seek-bar  input {
+    margin-right: 15px;
 }
 
 .buttons {
     margin: 16px;
+}
+
+.buttons a {
+    border-radius: 50px;
+    margin-right: 16px;
+    font-size: 30px;
+    font-weight: 600;
 }
 
 #search-input {

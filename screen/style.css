@@ -254,6 +254,18 @@ body {
     font-weight: 600;
 }
 
+.buttons svg {
+    width: 30px;
+    height: 30px;
+    margin-top: 8px;
+    margin-right: 13px;
+    fill: none;
+    stroke: var(--tab-title-text);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
 #search-input {
     padding: 12px 16px;
     width: 100%;

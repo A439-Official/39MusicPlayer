@@ -228,7 +228,7 @@ body {
     font-weight: 300;
 }
 
-.content  span {
+.content span {
     font-size: 15px;
     margin-left: 15px;
 }
@@ -239,8 +239,9 @@ body {
     grid-template-columns: auto auto;
 }
 
-.seek-bar  input {
+.seek-bar input {
     margin-right: 15px;
+    width: 300px;
 }
 
 .buttons {
@@ -254,7 +255,8 @@ body {
     font-weight: 600;
 }
 
-.buttons svg {
+.buttons svg,
+.playback-interface svg {
     width: 30px;
     height: 30px;
     margin-top: 8px;
@@ -264,6 +266,15 @@ body {
     stroke-width: 2;
     stroke-linecap: round;
     stroke-linejoin: round;
+}
+
+.buttons button,
+.playback-interface button {
+    width: 35px;
+    height: 48px;
+    background-color: transparent;
+    border: none;
+    color: inherit;
 }
 
 #search-input {
@@ -298,4 +309,20 @@ body {
 
 #search-results-table td {
     padding: 12px 16px;
+}
+
+.playback-interface {
+    position: fixed;
+    bottom: -200vh;
+    left: 0;
+    width: 100%;
+    height: 100vh;
+    background-color: var(--tab-content);
+    color: var(--tab-content-text);
+    transition: bottom 0.5s ease;
+    z-index: 100;
+}
+
+.playback-interface.active {
+    bottom: 0;
 }

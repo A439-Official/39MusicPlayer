@@ -1,3 +1,5 @@
+
+
 document.addEventListener("DOMContentLoaded", () => {
     const searchInput = document.getElementById("search-input");
     const searchResultsBody = document.getElementById("search-results-body");
@@ -73,6 +75,21 @@ document.addEventListener("DOMContentLoaded", () => {
             const artistCell = document.createElement("td");
             artistCell.textContent = song.artist.join(" & ");
             row.appendChild(artistCell);
+            // Action cell with play button
+            const actionCell = document.createElement("td");
+            const playButton = document.createElement("button");
+            playButton.textContent = "播放";
+            playButton.addEventListener("click", () => {
+                // Update song info in footer
+                const titleEl = document.getElementById('song-title');
+                const artistEl = document.getElementById('song-artist');
+                if (titleEl) titleEl.textContent = song.name;
+                if (artistEl) artistEl.textContent = song.artist.join(" & ");
+                // Play the song
+                playSong(song.id);
+            });
+            actionCell.appendChild(playButton);
+            row.appendChild(actionCell);
             searchResultsBody.appendChild(row);
         });
         const oldLoader = document.getElementById("loading-indicator");
@@ -83,7 +100,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const noMoreRow = document.createElement("tr");
             noMoreRow.id = "no-more-results";
             const noMoreCell = document.createElement("td");
-            noMoreCell.colSpan = 2;
+            noMoreCell.colSpan = 3;
             noMoreCell.textContent = "没有更多结果了";
             noMoreCell.style.textAlign = "center";
             noMoreCell.style.padding = "10px";
@@ -103,7 +120,7 @@ document.addEventListener("DOMContentLoaded", () => {
         const loadingRow = document.createElement("tr");
         loadingRow.id = "loading-indicator";
         const loadingCell = document.createElement("td");
-        loadingCell.colSpan = 2;
+        loadingCell.colSpan = 3;
         loadingCell.textContent = "加载中...";
         loadingCell.style.textAlign = "center";
         loadingCell.style.padding = "10px";

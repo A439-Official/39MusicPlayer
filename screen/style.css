@@ -54,17 +54,20 @@ body {
 
 body {
     display: flex;
+    background-color: var(--tab-content);
 }
 
 .tab-list {
     display: flex;
     flex-direction: column;
     width: 256px;
-    height: 100%;
     background-color: var(--tab-list);
     color: var(--tab-title-text);
     padding: 16px;
     gap: 12px;
+    position: absolute;
+    top: 0;
+    bottom: 80px;
 }
 
 .tab-title {
@@ -85,16 +88,26 @@ body {
 }
 
 .tab-content {
-    display: none;
+    opacity: 0;
+    visibility: hidden;
     flex: 1;
-    background-color: var(--tab-content);
+    background-color: transparent;
     color: var(--tab-content-text);
     padding: 20px;
     overflow: auto;
+    transition:
+        opacity 0.3s ease,
+        visibility 0.3s;
+    position: absolute;
+    top: 0;
+    right: 0;
+    bottom: 80px;
+    left: 256px;
 }
 
 .tab-content.active {
-    display: block;
+    opacity: 1;
+    visibility: visible;
 }
 
 .setting-item {
@@ -208,11 +221,6 @@ body {
     align-items: center;
 }
 
-.playback-interface .footer-tabs {
-    position: absolute;
-    justify-content: center;
-}
-
 .footer-tabs img {
     width: 50px;
     height: 50px;
@@ -260,8 +268,7 @@ body {
     font-weight: 600;
 }
 
-.buttons svg,
-.playback-interface svg {
+.buttons svg {
     width: 30px;
     height: 30px;
     margin-top: 8px;
@@ -273,20 +280,12 @@ body {
     stroke-linejoin: round;
 }
 
-.buttons button,
-.playback-interface button {
+.buttons button {
     width: 35px;
     height: 48px;
     background-color: transparent;
     border: none;
     color: inherit;
-}
-
-.playback-interface button {
-    position: absolute;
-    top: 0;
-    left: 0;
-    padding-left: 10px;
 }
 
 .volume-progress-bar {
@@ -347,24 +346,4 @@ body {
 
 #search-results-table td {
     padding: 12px 16px;
-}
-
-.playback-interface {
-    position: fixed;
-    bottom: -200vh;
-    left: 0;
-    width: 100%;
-    height: 100vh;
-    background-color: var(--tab-content);
-    color: var(--tab-content-text);
-    transition: bottom 0.5s ease;
-    z-index: 100;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    align-items: center;
-}
-
-.playback-interface.active {
-    bottom: 0;
 }

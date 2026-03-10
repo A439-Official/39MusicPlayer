@@ -21,6 +21,7 @@
                     <tr>
                         <th data-i18n="Title">Title</th>
                         <th data-i18n="Artist">Artist</th>
+                        <th data-i18n="Action">Action</th>
                     </tr>
                 </thead>
                 <tbody id="search-results-body"></tbody>
@@ -39,50 +40,20 @@
                 <div id="theme-select-custom"></div>
             </div>
         </div>
-        <div class="playback-interface" id="panel">
-            <button id="closeBtn">
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M12 5v13M5 12l7 7 7-7" />
-                </svg>
-            </button>
-            <h1>这是向上推出的内容</h1>
-            <p>这里可以放置任何HTML内容</p>
-            <div class="footer-tabs">
-                <div class="buttons">
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <polygon points="19 20 9 12 19 4 19 20"></polygon>
-                        <line x1="5" y1="19" x2="5" y2="5"></line>
-                    </svg>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <rect x="6" y="4" width="4" height="16"></rect>
-                        <rect x="14" y="4" width="4" height="16"></rect>
-                    </svg>
-                    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <polygon points="5 4 15 12 5 20 5 4"></polygon>
-                        <line x1="19" y1="5" x2="19" y2="19"></line>
-                    </svg>
-                </div>
-                <div class="buttons volume">
-                    <svg id="volume-button" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                        <polygon points="11 5 6 9 2 9 2 15 6 15 11 19 11 5"></polygon>
-                        <path d="M19.07 4.93a10 10 0 0 1 0 14.14M15.54 8.46a5 5 0 0 1 0 7.07"></path>
-                    </svg>
-                    <div class="volume-progress-bar">
-                        <input type="range" id="volumeSlider" min="0" max="1" step="0.01" value="1" />
-                    </div>
-                </div>
-            </div>
+        <div class="tab-content" id="content-player">
+            <h1>播放界面</h1>
+            <p>这里是播放控制界面，可以放置播放控制、歌词显示等内容</p>
         </div>
         <div class="footer-tabs">
             <img src="../resources/39.png" class="footer-img" />
             <div class="content-box">
                 <div class="content">
-                    <p>曲名</p>
-                    <span>作者</span>
+                    <p id="song-title"></p>
+                    <span id="song-artist"></span>
                 </div>
                 <div class="seek-bar">
-                    <input type="range" id="" min="0" max="100" value="0" />
-                    <span> <e>00:00</e>&nbsp;/&nbsp;00:00 </span>
+                    <input type="range" id="seek-bar" min="0" max="100" value="0" />
+                    <span><span id="current-time"></span>&nbsp;/&nbsp;<span id="total-time"></span></span>
                 </div>
             </div>
             <div class="buttons">
@@ -90,7 +61,7 @@
                     <polygon points="19 20 9 12 19 4 19 20"></polygon>
                     <line x1="5" y1="19" x2="5" y2="5"></line>
                 </svg>
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
+                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="pause-btn" onclick="togglePause()">
                     <rect x="6" y="4" width="4" height="16"></rect>
                     <rect x="14" y="4" width="4" height="16"></rect>
                 </svg>
@@ -98,7 +69,7 @@
                     <polygon points="5 4 15 12 5 20 5 4"></polygon>
                     <line x1="19" y1="5" x2="19" y2="19"></line>
                 </svg>
-                <button id="openBtn">
+                <button id="openBtn" onclick="switchToPlayerTab()">
                     <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" id="tab-settings">
                         <path d="M12 19V6M5 12l7-7 7 7" />
                     </svg>
@@ -111,6 +82,6 @@
 <script src="../scripts/select.js"></script>
 <script src="theme.js"></script>
 <script src="i18n.js"></script>
+<script src="player.js"></script>
 <script src="search.js"></script>
 <script src="script.js"></script>
-<script src="panel.js"></script>

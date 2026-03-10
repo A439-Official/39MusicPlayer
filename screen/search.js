@@ -10,9 +10,7 @@ document.addEventListener("DOMContentLoaded", () => {
     // 进行搜索
     function performSearch(query, page = 0) {
         isLoading = true;
-        return fetch(
-            `https://ncm.zhenxin.me/cloudsearch?&limit=${limit}&offset=${page * limit}&keywords=${encodeURIComponent(query)}`,
-        )
+        return fetch(`https://ncm.zhenxin.me/cloudsearch?&limit=${limit}&offset=${page * limit}&keywords=${encodeURIComponent(query)}`)
             .then((response) => {
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
@@ -25,17 +23,14 @@ document.addEventListener("DOMContentLoaded", () => {
                     return [];
                 }
                 const total = data.result?.songCount || 0;
-                const currentResults =
-                    page * limit + (data.result?.songs?.length || 0);
+                const currentResults = page * limit + (data.result?.songs?.length || 0);
                 hasMore = currentResults < total;
                 const results = [];
                 for (const item of data.result?.songs || []) {
                     const song = {
                         id: item.id.toString(),
                         name: item.name,
-                        artist: item.ar
-                            ? item.ar.map((artist) => artist.name)
-                            : [],
+                        artist: item.ar ? item.ar.map((artist) => artist.name) : [],
                         album: item.al?.name || "",
                         pic: item.al?.picUrl || "",
                         privilege: item.privilege

@@ -286,7 +286,33 @@ body {
     position: absolute;
     top: 0;
     left: 0;
-    padding: 10px;
+    padding-left: 10px;
+}
+
+.volume-progress-bar {
+    display: none;
+    position: absolute;
+    height: 220px;
+    display: flex;
+    align-items: center;
+}
+
+.volume {
+    display: flex;
+    align-items: center;
+    flex-direction: column-reverse;
+}
+
+.volume svg {
+    margin-top: 3px;
+    margin-right: 0px;
+}
+
+#volumeSlider {
+    transform: rotate(270deg);
+    transform-origin: center;
+    width: 100px;
+    height: 20px;
 }
 
 #search-input {

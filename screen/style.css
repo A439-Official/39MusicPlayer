@@ -228,6 +228,10 @@ body {
     border: 2px solid rgb(255, 255, 255);
 }
 
+.content-box {
+    width: 450px;
+}
+
 .content {
     color: var(--tab-title-text);
     display: grid;
@@ -236,14 +240,47 @@ body {
     align-items: end;
 }
 
-.content p {
-    font-size: 20px;
-    font-weight: 300;
+.title-box {
+    width: 200px;
+    overflow: hidden;
+    display: flex;
+    white-space: nowrap;
+    justify-content: flex-start;
 }
 
-.content span {
+.artist-box {
+    width: 200px;
+    overflow: hidden;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.title-box p {
+    font-size: 20px;
+    font-weight: 300;
+    display: inline-block;
+}
+
+@keyframes scroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(calc(-100% + 200px));
+    }
+}
+
+.coroll{
+    animation: scroll 10s linear infinite;
+    padding-left: 1em;
+}
+
+.artist-box span {
     font-size: 15px;
     margin-left: 15px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 
 .seek-bar {
@@ -254,7 +291,7 @@ body {
 
 .seek-bar input {
     margin-right: 15px;
-    width: 300px;
+    width: 334px;
 }
 
 .buttons {

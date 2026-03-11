@@ -48,12 +48,16 @@
             <img src="../resources/39.png" class="footer-img" />
             <div class="content-box">
                 <div class="content">
-                    <p id="song-title"></p>
-                    <span id="song-artist"></span>
+                    <div class="title-box">
+                        <p class="song-title" id="song-title">曲名</p>
+                    </div>
+                    <div class="artist-box">
+                        <span class="song-artist" id="song-artist">作者</span>
+                    </div>
                 </div>
                 <div class="seek-bar">
                     <input type="range" id="seek-bar" min="0" max="100" value="0" />
-                    <span><span id="current-time"></span>&nbsp;/&nbsp;<span id="total-time"></span></span>
+                    <span><span id="current-time">00:00</span>&nbsp;/&nbsp;<span id="total-time">00:00</span></span>
                 </div>
             </div>
             <div class="buttons">
@@ -85,3 +89,4 @@
 <script src="player.js"></script>
 <script src="search.js"></script>
 <script src="script.js"></script>
+<script src="css.js"></script>

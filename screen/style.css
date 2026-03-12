@@ -270,7 +270,7 @@ body {
     }
 }
 
-.coroll{
+.coroll {
     animation: scroll 10s linear infinite;
     padding-left: 1em;
 }
@@ -296,6 +296,9 @@ body {
 
 .buttons {
     margin: 16px;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
 }
 
 .buttons a {
@@ -329,7 +332,6 @@ body {
     display: none;
     position: absolute;
     height: 220px;
-    display: flex;
     align-items: center;
 }
 
@@ -342,6 +344,16 @@ body {
 .volume svg {
     margin-top: 3px;
     margin-right: 0px;
+}
+
+.volume:hover {
+    .volume-progress-bar {
+        display: flex;
+    }
+}
+
+.volume-progress-bar:hover {
+    display: flex;
 }
 
 #volumeSlider {

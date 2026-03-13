@@ -27,16 +27,24 @@ async function playSong(songId) {
         currentAudio.src = audioUrl;
         currentAudio.load();
         setupSeekBar();
+
         currentAudio.addEventListener("loadedmetadata", () => {
+            const fixedDuration = Math.floor(currentAudio.duration);
             if (totalTimeEl) {
-                totalTimeEl.textContent = formatTime(currentAudio.duration);
+                totalTimeEl.textContent = formatTime(fixedDuration);
             }
             if (seekBar) {
-                seekBar.max = Math.floor(currentAudio.duration);
+                seekBar.max = fixedDuration;
+                seekBar.value = 0;
+            }
+            if (currentTimeEl) {
+                currentTimeEl.textContent = formatTime(0);
             }
         });
+
         await currentAudio.play();
-        updateInterval = setInterval(updateSeekBar, 1000);
+
+        currentAudio.addEventListener("timeupdate", updateSeekBar);
     } else {
         console.error("Failed to get song URL:", data);
     }
@@ -88,14 +96,23 @@ function setupSeekBar() {
 }
 
 function updateSeekBar() {
-    if (!currentAudio || currentAudio.paused || !seekBar || !currentTimeEl) {
+    if (!currentAudio || !seekBar || !currentTimeEl || !totalTimeEl) {
         return;
     }
     const currentTime = currentAudio.currentTime;
     const duration = currentAudio.duration;
-    if (duration) {
-        seekBar.value = Math.floor(currentTime);
-        currentTimeEl.textContent = formatTime(currentTime);
+
+    const displayTime = Math.min(currentTime, duration);
+
+    if (!isNaN(duration) && duration > 0) {
+        const progressPercent = (displayTime / duration) * 100;
+        seekBar.value = displayTime;
+
+        currentTimeEl.textContent = formatTime(displayTime);
+
+        if (totalTimeEl.textContent === "00:00" && duration > 0) {
+            totalTimeEl.textContent = formatTime(Math.floor(duration));
+        }
     }
 }
 
@@ -103,7 +120,7 @@ function handleSeek() {
     if (!currentAudio || !seekBar) {
         return;
     }
-    const seekTime = parseInt(seekBar.value);
+    const seekTime = parseFloat(seekBar.value);
     if (!isNaN(seekTime)) {
         currentAudio.currentTime = seekTime;
         if (currentTimeEl) {
@@ -114,9 +131,12 @@ function handleSeek() {
 
 // Format seconds to MM:SS
 function formatTime(seconds) {
-    if (isNaN(seconds)) return "00:00";
-    const mins = Math.floor(seconds / 60);
-    const secs = Math.floor(seconds % 60);
+    if (isNaN(seconds) || !isFinite(seconds) || seconds < 0) return "00:00";
+
+    const roundedSecs = Math.round(seconds);
+    const mins = Math.floor(roundedSecs / 60);
+    const secs = roundedSecs % 60;
+
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 

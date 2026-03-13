@@ -102,7 +102,7 @@ function updateSeekBar() {
     const currentTime = currentAudio.currentTime;
     const duration = currentAudio.duration;
 
-    const displayTime = Math.min(currentTime, duration);
+    const displayTime = Math.min(Math.floor(currentTime), duration);
 
     if (!isNaN(duration) && duration > 0) {
         const progressPercent = (displayTime / duration) * 100;

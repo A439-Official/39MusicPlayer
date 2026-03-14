@@ -40,10 +40,9 @@ async function safeAsync(fn, errorMsg) {
 async function getPlaylists() {
     const list = await safeAsync(() => window.electronAPI.getConfig("playlists", []), "获取播放列表配置失败");
     if (!Array.isArray(list)) return [];
-    
-    return list.map(playlist => {
+    return list.map((playlist) => {
         if (!playlist.songs) playlist.songs = [];
-        playlist.songs = playlist.songs.map(entry => {
+        playlist.songs = playlist.songs.map((entry) => {
             if (typeof entry === "string") return entry;
             if (entry && entry.id) return entry.id;
             return "unknown";
@@ -68,7 +67,6 @@ async function setCurrentPlaylistIndex(idx) {
     await safeAsync(() => window.electronAPI.setConfig("playlist", idx), "设置当前播放列表索引失败");
 }
 
-// 确保播放历史播放列表存在
 async function ensurePlayHistoryPlaylist() {
     const list = await getPlaylists();
     if (!list.find((p) => p.name === "播放历史")) {
@@ -95,34 +93,28 @@ async function saveCurrentPlaylist() {
 
 // 添加歌曲到播放列表
 async function addSongToPlaylist(song, playlistName = null) {
-    const songId = extractSongId(song);
-    
+    const songId = song;
     if (playlistName) {
-        // 添加到指定播放列表
         const list = await getPlaylists();
-        let playlist = list.find(p => p.name === playlistName);
+        let playlist = list.find((p) => p.name === playlistName);
         if (!playlist) {
             playlist = { name: playlistName, songs: [] };
             list.push(playlist);
         }
-        if (playlist.songs.some(s => s === songId)) return;
-        
+        if (playlist.songs.some((s) => s === songId)) return;
         playlist.songs.push(songId);
         if (playlistName === "播放历史" && playlist.songs.length > 100) {
             playlist.songs.shift();
         }
         await savePlaylists(list);
         playlists = list;
-        
-        // 如果当前显示的是这个播放列表，更新UI
-        const playlistIdx = list.findIndex(p => p.name === playlistName);
+        const playlistIdx = list.findIndex((p) => p.name === playlistName);
         if (playlistIdx !== -1 && currentPlaylistIndex === playlistIdx) {
             currentPlaylistSongs = playlist.songs;
             updatePlaylistUI();
         }
     } else {
-        // 添加到当前播放列表
-        if (currentPlaylistSongs.some(s => s === songId)) {
+        if (currentPlaylistSongs.some((s) => s === songId)) {
             console.log("歌曲已在当前播放列表中");
             return;
         }
@@ -142,7 +134,7 @@ async function addToPlayHistory(song) {
     await addSongToPlaylist(song, "播放历史");
 }
 
-// 从当前播放列表中按索引删除歌曲
+// 从当前播放列表中删除歌曲
 async function removeFromCurrentPlaylist(index) {
     if (index < 0 || index >= currentPlaylistSongs.length) return;
     const removed = currentPlaylistSongs.splice(index, 1)[0];
@@ -155,41 +147,42 @@ async function removeFromCurrentPlaylist(index) {
     updatePlaylistUI();
 }
 
-// 播放当前播放列表中的歌曲（按索引）
+// 播放当前播放列表中的歌曲
 async function playPlaylistSong(index) {
-    if (index < 0 || index >= currentPlaylistSongs.length) return;
+    if (index < 0 || index >= currentPlaylistSongs.length) {
+        return;
+    }
     const songId = currentPlaylistSongs[index];
     currentPlaylistIndex = index;
-
     const songInfo = await window.musicApi.getSongInfo(songId);
     const titleEl = document.getElementById("song-title");
-    if (titleEl) titleEl.textContent = songInfo?.name || songId;
-
+    if (titleEl) {
+        titleEl.textContent = songInfo?.name || songId;
+    }
     const artistEl = document.getElementById("song-artist");
     if (artistEl) {
         const artistText = songInfo?.artist ? (Array.isArray(songInfo.artist) ? songInfo.artist.join(" & ") : songInfo.artist) : "";
         artistEl.textContent = artistText;
     }
-
     await addToPlayHistory(songId);
     playSong(songId);
 }
 
-// 播放下一首歌曲（在当前播放列表中）
+// 播放下一首
 async function playNext() {
     if (currentPlaylistSongs.length === 0) return;
     const nextIndex = (currentPlaylistIndex + 1) % currentPlaylistSongs.length;
     await playPlaylistSong(nextIndex);
 }
 
-// 播放上一首歌曲（在当前播放列表中）
+// 播放上一首
 async function playPrev() {
     if (currentPlaylistSongs.length === 0) return;
     const prevIndex = (currentPlaylistIndex - 1 + currentPlaylistSongs.length) % currentPlaylistSongs.length;
     await playPlaylistSong(prevIndex);
 }
 
-// 切换到另一个播放列表
+// 切换播放列表
 async function switchPlaylist(index) {
     if (index >= 0 && index < playlists.length) {
         currentPlaylistIndex = index;
@@ -202,69 +195,45 @@ async function switchPlaylist(index) {
 // 创建播放列表选择器
 function createPlaylistSelector(container) {
     const historyIdx = playlists.findIndex((p) => p.name === "播放历史");
-
-    // 准备选项数据：排序（播放历史优先）并提取名称
     const playlistOptions = playlists
         .map((pl, idx) => ({ idx, pl, isHistory: idx === historyIdx }))
         .sort((a, b) => (a.isHistory ? -1 : b.isHistory ? 1 : 0))
         .map(({ pl }) => pl.name);
-
-    // 创建自定义选择框容器
     const selectContainer = el("div", {
         className: "custom-select-container",
-        style: { marginBottom: "16px" }
+        style: { marginBottom: "16px" },
     });
-
-    // 添加标签
     selectContainer.appendChild(
         el("label", {
             textContent: "选择歌单: ",
             style: { marginRight: "8px" },
-        })
+        }),
     );
-
-    // 创建自定义选择框
     const customSelectDiv = el("div", {
         id: "playlist-selector-custom",
-        style: { display: "inline-block" }
+        style: { display: "inline-block" },
     });
     selectContainer.appendChild(customSelectDiv);
-
-    // 计算当前选中的索引（考虑排序后的顺序）
     let selectedIndex = 0;
-    const sortedPlaylists = playlists
-        .map((pl, idx) => ({ idx, pl, isHistory: idx === historyIdx }))
-        .sort((a, b) => (a.isHistory ? -1 : b.isHistory ? 1 : 0));
-    
+    const sortedPlaylists = playlists.map((pl, idx) => ({ idx, pl, isHistory: idx === historyIdx })).sort((a, b) => (a.isHistory ? -1 : b.isHistory ? 1 : 0));
     for (let i = 0; i < sortedPlaylists.length; i++) {
         if (sortedPlaylists[i].idx === currentPlaylistIndex) {
             selectedIndex = i;
             break;
         }
     }
-
-    // 初始化自定义选择框
-    const customSelect = new CustomSelect(
-        customSelectDiv,
-        playlistOptions,
-        selectedIndex,
-        (index) => {
-            // 获取原始播放列表索引
-            const originalIndex = sortedPlaylists[index].idx;
-            switchPlaylist(originalIndex);
-        }
-    );
+    const customSelect = new CustomSelect(customSelectDiv, playlistOptions, selectedIndex, (index) => {
+        const originalIndex = sortedPlaylists[index].idx;
+        switchPlaylist(originalIndex);
+    });
 
     container.appendChild(selectContainer);
     container.appendChild(el("br"));
 }
 
-// 创建歌曲表格行
 function createSongRow(songId, index) {
     const titleCell = el("td", { textContent: songId });
     const artistCell = el("td", { textContent: "" });
-
-    // 异步获取歌曲信息
     window.musicApi
         .getSongInfo(songId)
         .then((songInfo) => {
@@ -275,7 +244,6 @@ function createSongRow(songId, index) {
             }
         })
         .catch((err) => console.error("Failed to get song info for", songId, err));
-
     const actionCell = el("td", {}, [
         el("button", {
             textContent: "Play",
@@ -287,7 +255,6 @@ function createSongRow(songId, index) {
             onclick: () => removeFromCurrentPlaylist(index),
         }),
     ]);
-
     return el(
         "tr",
         {
@@ -305,16 +272,13 @@ function createPlaylistTable(container) {
             "data-i18n": text,
         }),
     );
-
     const headerRow = el("tr", {}, headers);
     const thead = el("thead", {}, [headerRow]);
-
     const tbody = el(
         "tbody",
         {},
         currentPlaylistSongs.map((songId, idx) => createSongRow(songId, idx)),
     );
-
     const table = el(
         "table",
         {
@@ -325,28 +289,23 @@ function createPlaylistTable(container) {
         },
         [thead, tbody],
     );
-
     container.appendChild(table);
 }
 
-// 更新播放列表UI
+// 更新UI
 function updatePlaylistUI() {
     const container = document.getElementById("content-playlist");
     if (!container) return;
-
     container.innerHTML = "";
-
     container.appendChild(
         el("h2", {
             textContent: "Playlist",
             "data-i18n": "Playlist",
         }),
     );
-
     if (playlists.length > 0) {
         createPlaylistSelector(container);
     }
-
     if (currentPlaylistSongs.length === 0) {
         container.appendChild(
             el("p", {
@@ -359,7 +318,6 @@ function updatePlaylistUI() {
         );
         return;
     }
-
     createPlaylistTable(container);
 }
 

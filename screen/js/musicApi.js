@@ -3,21 +3,33 @@ window.musicApi = window.musicApi || {};
 const rootUrl = "https://ncm.zhenxin.me";
 const backupApi = "https://api.cenguigui.cn/api/netease/music_v1.php";
 
-// 缓存对象
 const cache = { songs: {}, lyrics: {}, mvs: {} };
 
-// 通用请求方法
-const fetchJson = async (url) => {
-    try {
-        const response = await fetch(url);
-        if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
-        const data = await response.json();
-        if (data.code !== 200) throw new Error(`API error: ${data.code}`);
-        return data;
-    } catch (error) {
-        console.error("Request error:", error);
-        return null;
+const fetchJson = async (url, retries = 5) => {
+    let lastError;
+    for (let i = 0; i < retries; i++) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
+            }
+            const data = await response.json();
+            if (data.code !== 200) {
+                throw new Error(`API error: ${data.code}`);
+            }
+            return data;
+        } catch (error) {
+            lastError = error;
+            console.warn(`Attempt ${i + 1} failed. Retrying...`);
+            if (i === retries - 1) {
+                console.error("All retries failed. Last error:", error);
+                return null;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
+        }
     }
+    console.error("Unexpected error in retry logic", lastError);
+    return null;
 };
 
 // 解析歌曲信息

@@ -1,0 +1,88 @@
+.custom-select {
+    position: relative;
+    width: 100%;
+    max-width: 300px;
+}
+
+.custom-select-display {
+    padding: 10px 12px;
+    border-radius: var(--border-radius);
+    cursor: pointer;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background-color: var(--select);
+}
+
+.custom-select-display:hover {
+    background-color: var(--select-hover);
+}
+
+.custom-select-display-open {
+    border-bottom-left-radius: 0;
+    border-bottom-right-radius: 0;
+    border-color: var(--select);
+}
+
+.custom-select-arrow {
+    transition: transform 0.3s;
+}
+
+.custom-select-open .custom-select-arrow {
+    transform: rotate(180deg);
+}
+
+.custom-select-options {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    max-height: 512px;
+    background-color: var(--select-option);
+    border-bottom-left-radius: var(--border-radius);
+    border-bottom-right-radius: var(--border-radius);
+    z-index: 1000;
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.custom-select-open .custom-select-options {
+    display: block;
+}
+
+.custom-select-option {
+    padding: 10px 12px;
+    font-size: 14px;
+    color: var(--tab-content-text);
+    cursor: pointer;
+}
+
+.custom-select-option:hover {
+    background-color: var(--select-option-hover);
+}
+
+.custom-select-option:last-child {
+    border-bottom-left-radius: var(--border-radius);
+    border-bottom-right-radius: var(--border-radius);
+}
+
+.custom-select-option:last-child:hover {
+    border-bottom-left-radius: var(--border-radius);
+    border-bottom-right-radius: var(--border-radius);
+}
+
+.custom-select-option-selected {
+    background-color: var(--select-option-selected);
+    color: var(--select-option-selected-text);
+}
+
+.custom-select-option-selected:hover {
+    background-color: var(--select-option-selected);
+}
+
+.custom-select-option-selected:last-child {
+    border-bottom-left-radius: var(--border-radius);
+    border-bottom-right-radius: var(--border-radius);
+}

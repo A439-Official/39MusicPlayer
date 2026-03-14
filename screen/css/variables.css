@@ -1,0 +1,20 @@
+:root {
+    --tab-list: #000;
+    --tab-title: #000;
+    --tab-title-hover: #000;
+    --tab-title-active: #000;
+    --tab-title-text: #000;
+    --tab-title-active-text: #000;
+    --tab-content: #000;
+    --tab-content-text: #000;
+    --select: #000;
+    --select-hover: #000;
+    --select-option: #000;
+    --select-option-hover: #000;
+    --select-option-selected: #000;
+    --select-option-selected-text: #000;
+    --input: #000;
+    --input-border: #000;
+    --input-text: #000;
+    --border-radius: 8px;
+}

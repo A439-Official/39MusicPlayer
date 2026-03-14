@@ -1,0 +1,154 @@
+.footer-tabs {
+    background-color: var(--tab-list);
+    box-shadow: var(--tab-title-active-text) 0px 4px 8px;
+    bottom: 0px;
+    color: var(--tab-title-active-text);
+    width: 100%;
+    height: 80px;
+    position: fixed;
+    display: flex;
+    justify-content: flex-start;
+    align-items: center;
+}
+
+.footer-tabs img {
+    width: 50px;
+    height: 50px;
+    margin: 20px;
+    border: 2px solid rgb(255, 255, 255);
+}
+
+.content-box {
+    width: 450px;
+}
+
+.content {
+    color: var(--tab-title-text);
+    display: grid;
+    grid-template-columns: auto auto auto;
+    justify-content: start;
+    align-items: end;
+}
+
+.title-box {
+    width: 100%;
+    overflow: hidden;
+    display: flex;
+    white-space: nowrap;
+    justify-content: flex-start;
+}
+
+.artist-box {
+    width: 200px;
+    overflow: hidden;
+    display: flex;
+    justify-content: flex-start;
+}
+
+.title-box p {
+    font-size: 20px;
+    font-weight: 300;
+    display: inline-block;
+}
+
+@keyframes scroll {
+    0% {
+        transform: translateX(0);
+    }
+    100% {
+        transform: translateX(calc(-100% + 200px));
+    }
+}
+
+.coroll {
+    animation: scroll 10s linear infinite;
+    padding-left: 1em;
+}
+
+.artist-box span {
+    font-size: 15px;
+    margin-left: 15px;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
+}
+
+.seek-bar {
+    display: grid;
+    align-items: stretch;
+    grid-template-columns: auto auto;
+}
+
+.seek-bar input {
+    margin-right: 15px;
+    width: 334px;
+}
+
+.buttons {
+    margin: 16px;
+    display: flex;
+    align-items: center;
+    flex-direction: row;
+}
+
+.buttons a {
+    border-radius: 50px;
+    margin-right: 16px;
+    font-size: 30px;
+    font-weight: 600;
+}
+
+.buttons svg {
+    width: 30px;
+    height: 30px;
+    margin-top: 8px;
+    margin-right: 13px;
+    fill: none;
+    stroke: var(--tab-title-text);
+    stroke-width: 2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+}
+
+.buttons button {
+    width: 35px;
+    height: 48px;
+    background-color: transparent;
+    border: none;
+    color: inherit;
+}
+
+.volume-progress-bar {
+    display: none;
+    position: absolute;
+    height: 220px;
+    align-items: center;
+}
+
+.volume {
+    display: flex;
+    align-items: center;
+    flex-direction: column-reverse;
+}
+
+.volume svg {
+    margin-top: 3px;
+    margin-right: 0px;
+}
+
+.volume:hover {
+    .volume-progress-bar {
+        display: flex;
+    }
+}
+
+.volume-progress-bar:hover {
+    display: flex;
+}
+
+#volumeSlider {
+    transform: rotate(270deg);
+    transform-origin: center;
+    width: 100px;
+    height: 20px;
+}

@@ -1,0 +1,45 @@
+/* 播放列表相关样式 */
+#content-playlist {
+    /* 播放列表容器样式 */
+}
+
+/* 播放列表表格样式 */
+#content-playlist table {
+    width: 100%;
+    border-collapse: collapse;
+    margin-top: 16px;
+}
+
+#content-playlist th {
+    padding: 12px 16px;
+    text-align: left;
+    background-color: var(--tab-title);
+    color: var(--tab-title-text);
+    font-weight: bold;
+}
+
+#content-playlist td {
+    padding: 12px 16px;
+    border-bottom: 1px solid var(--input-border);
+}
+
+#content-playlist tr:hover {
+    background-color: var(--select-hover);
+}
+
+/* 播放列表按钮样式 */
+#content-playlist button {
+    padding: 6px 12px;
+    border-radius: var(--border-radius);
+    border: none;
+    background-color: var(--tab-title);
+    color: var(--tab-title-text);
+    cursor: pointer;
+    transition: background-color 0.3s;
+}
+
+#content-playlist button:hover {
+    background-color: var(--tab-title-hover);
+}
+
+/* 播放列表选择器使用自定义选择框样式（在components.css中定义） */

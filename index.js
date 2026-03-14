@@ -3,6 +3,7 @@ const path = require("node:path");
 const ConfigManager = require("./scripts/configManager");
 const { registerProtocolHandler } = require("./scripts/protocolHandler");
 const { registerIPC } = require("./scripts/ipcHandler");
+const { createTray } = require("./scripts/trayManager");
 
 const APP_NAME = "39MusicPlayer";
 
@@ -35,11 +36,17 @@ function createWindow() {
         console.error("Failed to load index.html:", err);
     });
 
+    mainWindow.on("close", (event) => {
+        if (!app.isQuitting) {
+            event.preventDefault();
+            mainWindow.hide();
+            return false;
+        }
+        return true;
+    });
+
     mainWindow.on("closed", () => {
         mainWindow = null;
-        if (process.platform !== "darwin") {
-            app.quit();
-        }
     });
 
     return mainWindow;
@@ -55,11 +62,6 @@ function initShortcuts() {
 
     // 菜单项配置
     const menuItems = [
-        {
-            label: "Reload window",
-            click: () => mainWindow.reload(),
-            accelerator: "CommandOrControl+R",
-        },
         {
             label: "Full screen",
             click: () => {
@@ -77,6 +79,11 @@ function initShortcuts() {
             click: () => mainWindow.webContents.openDevTools(),
             accelerator: "f12",
         });
+        menuItems.push({
+            label: "Reload window",
+            click: () => mainWindow.reload(),
+            accelerator: "CommandOrControl+R",
+        });
     }
 
     const submenu = Menu.buildFromTemplate(menuItems);
@@ -91,9 +98,11 @@ function initializeApp() {
     registerIPC(app, configManager);
 
     createWindow();
+    tray = createTray(app, mainWindow);
 }
 
 app.whenReady().then(() => {
+    app.isQuitting = false;
     initializeApp();
     app.on("activate", () => {
         if (mainWindow === null) {
@@ -102,14 +111,11 @@ app.whenReady().then(() => {
     });
 });
 
-app.on("window-all-closed", () => {
-    if (process.platform !== "darwin") {
-        app.quit();
-    }
-});
+app.on("window-all-closed", () => {});
 
 app.on("before-quit", () => {
     console.log("Application is quitting...");
+    app.isQuitting = true;
 });
 
 process.on("uncaughtException", (error) => {

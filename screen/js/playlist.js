@@ -2,6 +2,7 @@
 let playlists = [];
 let currentPlaylistIndex = 0;
 let currentPlaylistSongs = [];
+let playlistSelectCustom = null;
 
 // DOM辅助函数
 function el(tag, props = {}, children = []) {
@@ -199,21 +200,30 @@ function createPlaylistSelector(container) {
         .map((pl, idx) => ({ idx, pl, isHistory: idx === historyIdx }))
         .sort((a, b) => (a.isHistory ? -1 : b.isHistory ? 1 : 0))
         .map(({ pl }) => pl.name);
-    const selectContainer = el("div", {
-        className: "custom-select-container",
-        style: { marginBottom: "16px" },
-    });
-    selectContainer.appendChild(
-        el("label", {
-            textContent: "选择歌单: ",
-            style: { marginRight: "8px" },
-        }),
-    );
-    const customSelectDiv = el("div", {
-        id: "playlist-selector-custom",
-        style: { display: "inline-block" },
-    });
-    selectContainer.appendChild(customSelectDiv);
+    
+    // 选择器容器
+    let selectContainer = document.getElementById("playlist-select-container");
+    if (!selectContainer) {
+        selectContainer = el("div", {
+            id: "playlist-select-container",
+            className: "custom-select-container",
+            style: { marginBottom: "16px" },
+        });
+        selectContainer.appendChild(
+            el("label", {
+                textContent: "选择歌单: ",
+                style: { marginRight: "8px" },
+            }),
+        );
+        const customSelectDiv = el("div", {
+            id: "playlist-selector-custom",
+            style: { display: "inline-block" },
+        });
+        selectContainer.appendChild(customSelectDiv);
+        container.appendChild(selectContainer);
+        container.appendChild(el("br"));
+    }
+    
     let selectedIndex = 0;
     const sortedPlaylists = playlists.map((pl, idx) => ({ idx, pl, isHistory: idx === historyIdx })).sort((a, b) => (a.isHistory ? -1 : b.isHistory ? 1 : 0));
     for (let i = 0; i < sortedPlaylists.length; i++) {
@@ -222,13 +232,20 @@ function createPlaylistSelector(container) {
             break;
         }
     }
-    const customSelect = new CustomSelect(customSelectDiv, playlistOptions, selectedIndex, (index) => {
-        const originalIndex = sortedPlaylists[index].idx;
-        switchPlaylist(originalIndex);
-    });
-
-    container.appendChild(selectContainer);
-    container.appendChild(el("br"));
+    
+    // 如果已有 CustomSelect 实例，则更新选中索引
+    if (playlistSelectCustom) {
+        playlistSelectCustom.setValue(selectedIndex);
+    } else {
+        // 创建新的 CustomSelect 实例
+        const customSelectDiv = document.getElementById("playlist-selector-custom");
+        if (customSelectDiv) {
+            playlistSelectCustom = new CustomSelect(customSelectDiv, playlistOptions, selectedIndex, (index) => {
+                const originalIndex = sortedPlaylists[index].idx;
+                switchPlaylist(originalIndex);
+            });
+        }
+    }
 }
 
 function createSongRow(songId, index) {
@@ -296,16 +313,37 @@ function createPlaylistTable(container) {
 function updatePlaylistUI() {
     const container = document.getElementById("content-playlist");
     if (!container) return;
-    container.innerHTML = "";
+    
+    // 获取现有的选择器容器
+    const selectContainer = document.getElementById("playlist-select-container");
+    
+    // 清空容器，但保留选择器容器（先将其从容器中移除）
+    if (selectContainer) {
+        container.removeChild(selectContainer);
+    }
+    // 清空剩余的子元素
+    while (container.firstChild) {
+        container.removeChild(container.firstChild);
+    }
+    
+    // 添加标题
     container.appendChild(
         el("h2", {
             textContent: "Playlist",
             "data-i18n": "Playlist",
         }),
     );
+    
+    // 添加选择器（如果存在播放列表）
     if (playlists.length > 0) {
-        createPlaylistSelector(container);
+        if (selectContainer) {
+            container.appendChild(selectContainer);
+        } else {
+            createPlaylistSelector(container);
+        }
     }
+    
+    // 如果当前播放列表为空，显示提示
     if (currentPlaylistSongs.length === 0) {
         container.appendChild(
             el("p", {
@@ -318,6 +356,8 @@ function updatePlaylistUI() {
         );
         return;
     }
+    
+    // 创建播放列表表格
     createPlaylistTable(container);
 }
 

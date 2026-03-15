@@ -1,5 +1,6 @@
-// 自定义下拉列表
 class CustomSelect {
+    static currentOpenInstance = null;
+
     constructor(container, options, selectedIndex = 0, onChange) {
         this.container = container;
         this.options = options;
@@ -55,16 +56,12 @@ class CustomSelect {
             if (option) {
                 const index = parseInt(option.dataset.index);
                 this.select(index);
-                this.close();
             }
+            e.stopPropagation();
         });
 
         document.addEventListener("click", () => {
             this.close();
-        });
-
-        this.optionsList.addEventListener("click", (e) => {
-            e.stopPropagation();
         });
     }
 
@@ -73,17 +70,22 @@ class CustomSelect {
     }
 
     open() {
+        if (CustomSelect.currentOpenInstance && CustomSelect.currentOpenInstance !== this) {
+            CustomSelect.currentOpenInstance.close();
+        }
         this.isOpen = true;
         this.container.classList.add("custom-select-open");
-        this.optionsList.style.display = "block";
         this.displayElement.classList.add("custom-select-display-open");
+        CustomSelect.currentOpenInstance = this;
     }
 
     close() {
         this.isOpen = false;
         this.container.classList.remove("custom-select-open");
-        this.optionsList.style.display = "none";
         this.displayElement.classList.remove("custom-select-display-open");
+        if (CustomSelect.currentOpenInstance === this) {
+            CustomSelect.currentOpenInstance = null;
+        }
     }
 
     select(index) {

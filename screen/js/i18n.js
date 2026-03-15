@@ -78,11 +78,10 @@ function updateLanguageSelector() {
     const currentIndex = languageKeys.indexOf(currentLanguage);
 
     if (languageSelectCustom) {
-        languageSelectCustom = null;
-        container.innerHTML = "";
-    }
-
-    if (typeof CustomSelect !== "undefined") {
+        // 如果已有实例，只更新选中索引，避免重新创建导致下拉列表关闭
+        languageSelectCustom.setValue(currentIndex >= 0 ? currentIndex : 0);
+    } else if (typeof CustomSelect !== "undefined") {
+        // 首次创建实例
         languageSelectCustom = new CustomSelect(container, languageNames, currentIndex >= 0 ? currentIndex : 0, (selectedIndex) => {
             // 将选中的索引转换为语言代码字符串
             if (selectedIndex >= 0 && selectedIndex < languageKeys.length) {

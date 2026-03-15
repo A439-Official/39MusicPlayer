@@ -54,15 +54,17 @@ function updateThemeSelector() {
     const themeNames = Object.keys(themes);
     const currentIndex = themeNames.indexOf(theme);
     if (themeSelectCustom) {
-        themeSelectCustom = null;
-        container.innerHTML = "";
+        // 如果已有实例，只更新选中索引，避免重新创建导致下拉列表关闭
+        themeSelectCustom.setValue(currentIndex >= 0 ? currentIndex : 0);
+    } else {
+        // 首次创建实例
+        themeSelectCustom = new CustomSelect(container, themeNames, currentIndex >= 0 ? currentIndex : 0, (selectedIndex) => {
+            const selectedTheme = themeNames[selectedIndex];
+            if (selectedTheme && selectedTheme !== theme) {
+                loadTheme(selectedTheme);
+            }
+        });
     }
-    themeSelectCustom = new CustomSelect(container, themeNames, currentIndex >= 0 ? currentIndex : 0, (selectedIndex) => {
-        const selectedTheme = themeNames[selectedIndex];
-        if (selectedTheme && selectedTheme !== theme) {
-            loadTheme(selectedTheme);
-        }
-    });
 }
 
 function initTheme() {

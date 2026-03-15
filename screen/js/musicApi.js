@@ -41,6 +41,7 @@ const parseSong = (song, privilege) => ({
     pic: song.al?.picUrl || "",
     mv: song.mv,
     privilege: privilege || song.privilege || {},
+    fee: song.fee || 0,
 });
 
 // 解析歌词
@@ -82,7 +83,7 @@ window.musicApi.getSongUrl = async (id) => {
 
     const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
     const urlData = mainData?.data?.[0];
-    if (info.privilege?.pl <= 0) {
+    if (info.fee > 0) {
         const backupData = await fetchJson(`${backupApi}?id=${id}&type=json&level=lossless`);
         if (backupData?.data?.url) {
             info.url = backupData.data.url;

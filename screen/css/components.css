@@ -33,12 +33,12 @@
 }
 
 .custom-select-options {
-    display: none;
     position: absolute;
     top: 100%;
     left: 0;
     right: 0;
-    max-height: 512px;
+    max-height: 0;
+    overflow: hidden;
     background-color: var(--select-option);
     border-bottom-left-radius: var(--border-radius);
     border-bottom-right-radius: var(--border-radius);
@@ -46,10 +46,16 @@
     margin: 0;
     padding: 0;
     list-style: none;
+    transform: scaleY(0);
+    transform-origin: top;
+    transition:
+        max-height 0.3s ease 0s,
+        transform 0.3s ease 0s;
 }
 
 .custom-select-open .custom-select-options {
-    display: block;
+    max-height: 500px;
+    transform: scaleY(1);
 }
 
 .custom-select-option {

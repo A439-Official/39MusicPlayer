@@ -57,7 +57,7 @@ document.addEventListener("DOMContentLoaded", function () {
         let x = 0;
 
         for (let i = 0; i < dataArray.length; i++) {
-            const barHeight = dataArray[i] / 2;
+            const barHeight = dataArray[i] / 2.5;
 
             // 绘制矩形条
             ctx.fillStyle = `rgb(0,${barHeight + 100}, 255)`;

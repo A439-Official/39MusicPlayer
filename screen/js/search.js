@@ -13,7 +13,6 @@ document.addEventListener("DOMContentLoaded", () => {
         return window.musicApi
             .search(query, limit, page)
             .then((results) => {
-                // 假设如果返回的结果数量等于 limit，则认为还有更多
                 hasMore = results.length === limit;
                 return results;
             })
@@ -60,27 +59,11 @@ document.addEventListener("DOMContentLoaded", () => {
             }
         });
         actionCell.appendChild(addToPlaylistButton);
-
         row.appendChild(actionCell);
         return row;
     }
 
-    // 处理播放歌曲
     async function handlePlaySong(song) {
-        // 更新歌曲信息
-        const titleEl = document.getElementById("song-title");
-        const artistEl = document.getElementById("song-artist");
-        if (titleEl) titleEl.textContent = song.name;
-        if (artistEl) artistEl.textContent = song.artist.join(" & ");
-
-        // 添加到播放历史
-        try {
-            await addToPlayHistory(song);
-        } catch (error) {
-            console.error("Failed to add song to play history", error);
-        }
-
-        // 切换到历史播放列表
         try {
             const playlists = await getPlaylists();
             const historyIdx = playlists.findIndex((p) => p.name === "播放历史");
@@ -90,8 +73,6 @@ document.addEventListener("DOMContentLoaded", () => {
         } catch (error) {
             console.error("Failed to switch to history playlist", error);
         }
-
-        // 播放歌曲
         playSong(song.id);
     }
 

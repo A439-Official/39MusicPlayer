@@ -4,9 +4,22 @@ let updateInterval = null;
 let seekBar = null;
 let currentTimeEl = null;
 let totalTimeEl = null;
+let loadedMetadataHandler = null;
+let errorHandler = null;
 
 async function playSong(songId) {
     currentSongId = songId;
+
+    // 移除之前的事件监听器
+    if (loadedMetadataHandler) {
+        currentAudio.removeEventListener("loadedmetadata", loadedMetadataHandler);
+        loadedMetadataHandler = null;
+    }
+    if (errorHandler) {
+        currentAudio.removeEventListener("error", errorHandler);
+        errorHandler = null;
+    }
+    currentAudio.removeEventListener("timeupdate", updateSeekBar);
 
     currentAudio.pause();
     currentAudio.src = "";
@@ -24,25 +37,64 @@ async function playSong(songId) {
         return;
     }
 
+    const songInfo = await window.musicApi.getSongInfo(songId);
+    if (currentSongId === songId) {
+        const titleEl = document.getElementById("song-title");
+        if (titleEl) titleEl.textContent = songInfo?.name || songId;
+        const artistEl = document.getElementById("song-artist");
+        if (artistEl) {
+            const artistText = songInfo?.artist ? (Array.isArray(songInfo.artist) ? songInfo.artist.join(" & ") : songInfo.artist) : "";
+            artistEl.textContent = artistText;
+        }
+    }
+
+    try {
+        await addToPlayHistory(songId);
+    } catch (error) {
+        console.error("Failed to add song to play history:", error);
+    }
+
     currentAudio.src = songData.url;
     currentAudio.load();
     setupSeekBar();
 
-    currentAudio.addEventListener("loadedmetadata", () => {
-        const fixedDuration = Math.floor(currentAudio.duration);
-        if (totalTimeEl) {
-            totalTimeEl.textContent = formatTime(fixedDuration);
-        }
-        if (seekBar) {
-            seekBar.max = fixedDuration;
-            seekBar.value = 0;
-        }
-        if (currentTimeEl) {
-            currentTimeEl.textContent = formatTime(0);
-        }
+    await new Promise((resolve, reject) => {
+        loadedMetadataHandler = function onLoadedMetadata() {
+            currentAudio.removeEventListener("loadedmetadata", loadedMetadataHandler);
+            currentAudio.removeEventListener("error", errorHandler);
+            const fixedDuration = Math.floor(currentAudio.duration);
+            if (totalTimeEl) {
+                totalTimeEl.textContent = formatTime(fixedDuration);
+            }
+            if (seekBar) {
+                seekBar.max = fixedDuration;
+                seekBar.value = 0;
+            }
+            if (currentTimeEl) {
+                currentTimeEl.textContent = formatTime(0);
+            }
+            loadedMetadataHandler = null;
+            errorHandler = null;
+            resolve();
+        };
+        errorHandler = function onError(e) {
+            currentAudio.removeEventListener("loadedmetadata", loadedMetadataHandler);
+            currentAudio.removeEventListener("error", errorHandler);
+            loadedMetadataHandler = null;
+            errorHandler = null;
+            reject(new Error("Failed to load audio metadata"));
+        };
+        currentAudio.addEventListener("loadedmetadata", loadedMetadataHandler);
+        currentAudio.addEventListener("error", errorHandler);
     });
 
-    await currentAudio.play();
+    // 开始播放
+    try {
+        await currentAudio.play();
+    } catch (error) {
+        console.error("Failed to play audio:", error);
+    }
+
     currentAudio.addEventListener("timeupdate", updateSeekBar);
 }
 

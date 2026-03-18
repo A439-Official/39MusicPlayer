@@ -8,4 +8,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     saveDialog: (options) => ipcRenderer.invoke("save-dialog", options),
 
     quit: () => ipcRenderer.invoke("quit"),
+
+    getCache: (cachePath) => ipcRenderer.invoke("get-cache", cachePath),
+    saveCache: (cachePath, data) => ipcRenderer.invoke("save-cache", cachePath, data),
+    clearCache: () => ipcRenderer.invoke("clear-cache"),
 });

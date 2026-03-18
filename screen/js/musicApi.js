@@ -3,7 +3,6 @@ window.musicApi = window.musicApi || {};
 const rootUrl = "https://ncm.zhenxin.me";
 const backupApi = "https://api.cenguigui.cn/api/netease/music_v1.php";
 
-const cache = { songs: {}, lyrics: {}, mvs: {} };
 const pendingPromises = {
     songs: {},
     lyrics: {},
@@ -60,9 +59,9 @@ const fetchJson = async (url, retries = 5) => {
                 return data;
             } catch (error) {
                 lastError = error;
-                console.warn(`Attempt ${i + 1} failed. Retrying...`);
+                // console.warn(`Attempt ${i + 1} failed. Retrying...`);
                 if (i === retries - 1) {
-                    console.error("All retries failed. Last error:", error);
+                    // console.error("All retries failed. Last error:", error);
                     return null;
                 }
                 await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
@@ -81,7 +80,6 @@ const parseSong = (song, privilege) => ({
     album: song.al?.name || "",
     pic: song.al?.picUrl || "",
     mv: song.mv,
-    privilege: privilege || song.privilege || {},
     fee: song.fee || 0,
 });
 
@@ -96,9 +94,34 @@ const parseLyrics = (lyricData) =>
         })
         .filter(Boolean) || [];
 
+function bufferToJson(buffer) {
+    if (!buffer) return null;
+    try {
+        const text = new TextDecoder().decode(buffer);
+        return JSON.parse(text);
+    } catch (error) {
+        console.error("Failed to parse cache data:", error);
+        return null;
+    }
+}
+
+function jsonToBuffer(obj) {
+    try {
+        const text = JSON.stringify(obj);
+        return new TextEncoder().encode(text);
+    } catch (error) {
+        console.error("Failed to serialize cache data:", error);
+        return null;
+    }
+}
+
 // 歌曲信息
 window.musicApi.getSongInfo = async (id) => {
-    if (cache.songs[id]) return cache.songs[id];
+    const buffer = await electronAPI.getCache(`${id}_info`);
+    if (buffer) {
+        const song_info = bufferToJson(buffer);
+        if (song_info) return song_info;
+    }
     if (pendingPromises.songs[id]) {
         return pendingPromises.songs[id];
     }
@@ -106,9 +129,12 @@ window.musicApi.getSongInfo = async (id) => {
         try {
             const data = await fetchJson(`${rootUrl}/song/detail?ids=${id}`);
             if (!data?.songs[0]) return null;
-
-            cache.songs[id] = parseSong(data.songs[0], data.privileges?.[0]);
-            return cache.songs[id];
+            const song_info = parseSong(data.songs[0]);
+            const buffer = jsonToBuffer(song_info);
+            if (buffer) {
+                await electronAPI.saveCache(`${id}_info`, buffer);
+            }
+            return song_info;
         } finally {
             delete pendingPromises.songs[id];
         }
@@ -121,13 +147,14 @@ window.musicApi.getSongInfo = async (id) => {
 window.musicApi.search = async (text, limit = 30, page = 0) => {
     const data = await fetchJson(`${rootUrl}/cloudsearch?limit=${limit}&offset=${page * limit}&keywords=${encodeURIComponent(text)}`);
     const songs = data?.result?.songs || [];
-    songs.forEach((song) => (cache.songs[song.id] = parseSong(song)));
-    return songs.map((song) => cache.songs[song.id]);
+    return songs.map((song) => parseSong(song));
 };
 
 // 获取歌曲URL
 window.musicApi.getSongUrl = async (id) => {
-    const info = cache.songs[id] || (await window.musicApi.getSongInfo(id));
+    const buffer = await electronAPI.getCache(`${id}_info`);
+    let song_info = buffer ? bufferToJson(buffer) : null;
+    const info = song_info || (await window.musicApi.getSongInfo(id));
     if (!info) return null;
     if (info.url) return { id, url: info.url };
     const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
@@ -146,7 +173,11 @@ window.musicApi.getSongUrl = async (id) => {
 
 // 获取歌词
 window.musicApi.getLyric = async (id) => {
-    if (cache.lyrics[id]) return cache.lyrics[id];
+    const buffer = await electronAPI.getCache(`${id}_lyric`);
+    if (buffer) {
+        const lyricData = bufferToJson(buffer);
+        if (lyricData) return lyricData;
+    }
     if (pendingPromises.lyrics[id]) {
         return pendingPromises.lyrics[id];
     }
@@ -154,12 +185,16 @@ window.musicApi.getLyric = async (id) => {
         try {
             const data = await fetchJson(`${rootUrl}/lyric?id=${id}`);
             if (!data) return null;
-            cache.lyrics[id] = {
+            const lyricData = {
                 id,
                 lyrics: parseLyrics(data.lrc),
                 tlyrics: parseLyrics(data.tlyric),
             };
-            return cache.lyrics[id];
+            const buffer = jsonToBuffer(lyricData);
+            if (buffer) {
+                await electronAPI.saveCache(`${id}_lyric`, buffer);
+            }
+            return lyricData;
         } finally {
             delete pendingPromises.lyrics[id];
         }
@@ -170,22 +205,30 @@ window.musicApi.getLyric = async (id) => {
 
 // 获取MV
 window.musicApi.getMv = async (id) => {
-    if (cache.mvs[id]) return cache.mvs[id];
+    const buffer = await electronAPI.getCache(`${id}_mv`);
+    if (buffer) {
+        const mvData = bufferToJson(buffer);
+        if (mvData) return mvData;
+    }
     if (pendingPromises.mvs[id]) {
         return pendingPromises.mvs[id];
     }
     const promise = (async () => {
         try {
             const data = await fetchJson(`${rootUrl}/mv/url?id=${id}`);
-            if (!data?.data?.url) return nul;
+            if (!data?.data?.url) return null;
             const [minutes, seconds] = data.data.duration.split(":").map(Number);
-            cache.mvs[id] = {
+            const mvData = {
                 id,
                 url: data.data.url,
                 size: data.data.size,
                 duration: (minutes * 60 + seconds) * 1000,
             };
-            return cache.mvs[id];
+            const buffer = jsonToBuffer(mvData);
+            if (buffer) {
+                await electronAPI.saveCache(`${id}_mv`, buffer);
+            }
+            return mvData;
         } finally {
             delete pendingPromises.mvs[id];
         }

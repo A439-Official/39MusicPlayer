@@ -149,15 +149,6 @@ async function playPlaylistSong(index) {
     if (index < 0 || index >= currentPlaylistSongs.length) return;
     const songId = currentPlaylistSongs[index];
     currentPlaylistIndex = index;
-    const songInfo = await window.musicApi.getSongInfo(songId);
-    const titleEl = document.getElementById("song-title");
-    if (titleEl) titleEl.textContent = songInfo?.name || songId;
-    const artistEl = document.getElementById("song-artist");
-    if (artistEl) {
-        const artistText = songInfo?.artist ? (Array.isArray(songInfo.artist) ? songInfo.artist.join(" & ") : songInfo.artist) : "";
-        artistEl.textContent = artistText;
-    }
-    await addToPlayHistory(songId);
     playSong(songId);
 }
 
@@ -185,12 +176,10 @@ async function switchPlaylist(index) {
     }
 }
 
-// 获取排序后的播放列表（历史播放列表优先）
+// 获取播放列表
 function getSortedPlaylists() {
     const historyIdx = playlists.findIndex((p) => p.name === "History");
-    return playlists
-        .map((pl, idx) => ({ idx, pl, isHistory: idx === historyIdx }))
-        .sort((a, b) => (a.isHistory ? -1 : b.isHistory ? 1 : 0));
+    return playlists.map((pl, idx) => ({ idx, pl, isHistory: idx === historyIdx })).sort((a, b) => (a.isHistory ? -1 : b.isHistory ? 1 : 0));
 }
 
 // 查找选中索引
@@ -214,16 +203,16 @@ function createPlaylistSelector(container) {
     if (!selectContainer) {
         selectContainer = el("div", {
             id: "playlist-select-container",
-            className: "custom-select-container"
+            className: "custom-select-container",
         });
         selectContainer.appendChild(
             el("label", {
-                textContent: "选择歌单: "
-            })
+                textContent: "选择歌单: ",
+            }),
         );
         const customSelectDiv = el("div", {
             id: "playlist-selector-custom",
-            style: { display: "inline-block" }
+            style: { display: "inline-block" },
         });
         selectContainer.appendChild(customSelectDiv);
         container.appendChild(selectContainer);
@@ -249,7 +238,7 @@ function createPlaylistSelector(container) {
 function createSongListItem(songId, index) {
     const listItem = el("div", {
         className: "song-list-item",
-        "data-song-id": songId
+        "data-song-id": songId,
     });
 
     // 歌曲信息容器
@@ -277,12 +266,12 @@ function createSongListItem(songId, index) {
     const playButton = el("button", {
         className: "play-button",
         textContent: "播放",
-        onclick: () => playPlaylistSong(index)
+        onclick: () => playPlaylistSong(index),
     });
     const deleteButton = el("button", {
         className: "delete-button",
         textContent: "删除",
-        onclick: () => removeFromCurrentPlaylist(index)
+        onclick: () => removeFromCurrentPlaylist(index),
     });
 
     actionContainer.appendChild(playButton);
@@ -305,7 +294,7 @@ function updatePlaylistUI() {
         titleEl = el("h2", {
             id: "playlist-title",
             textContent: "播放列表",
-            "data-i18n": "Playlist"
+            "data-i18n": "Playlist",
         });
         container.appendChild(titleEl);
     }
@@ -336,7 +325,7 @@ function updatePlaylistUI() {
             id: "playlist-empty-msg",
             className: "empty-message",
             textContent: "播放列表为空，请添加歌曲",
-            "data-i18n": "Playlist is empty"
+            "data-i18n": "Playlist is empty",
         });
         container.appendChild(emptyMsgEl);
     }
@@ -362,11 +351,14 @@ function updatePlaylistUI() {
         listContainer.removeChild(listContainer.firstChild);
     }
 
-    // 添加新列表项（反转显示顺序）
-    currentPlaylistSongs.slice().reverse().forEach((songId, idx) => {
-        const originalIndex = currentPlaylistSongs.length - 1 - idx;
-        listContainer.appendChild(createSongListItem(songId, originalIndex));
-    });
+    // 添加新列表项
+    currentPlaylistSongs
+        .slice()
+        .reverse()
+        .forEach((songId, idx) => {
+            const originalIndex = currentPlaylistSongs.length - 1 - idx;
+            listContainer.appendChild(createSongListItem(songId, originalIndex));
+        });
 
     // 移除最后一个列表项的分隔线
     const items = listContainer.querySelectorAll(".song-list-item");

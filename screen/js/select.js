@@ -93,11 +93,14 @@ class CustomSelect {
             this.optionsList.querySelectorAll(".custom-select-option").forEach((option, i) => {
                 option.classList.toggle("custom-select-option-selected", i === index);
             });
-            this.selectedIndex = index;
-            this.updateDisplay();
-
-            if (this.onChange) {
-                this.onChange(index);
+            if (index !== this.selectedIndex) {
+                this.selectedIndex = index;
+                this.updateDisplay();
+                if (this.onChange) {
+                    this.onChange(index);
+                }
+            } else {
+                this.updateDisplay();
             }
         }
     }

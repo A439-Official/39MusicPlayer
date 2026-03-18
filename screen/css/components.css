@@ -11,17 +11,17 @@
     display: flex;
     justify-content: space-between;
     align-items: center;
-    background-color: var(--select);
+    background-color: var(--color-1);
 }
 
 .custom-select-display:hover {
-    background-color: var(--select-hover);
+    background-color: var(--color-3);
 }
 
 .custom-select-display-open {
     border-bottom-left-radius: 0;
     border-bottom-right-radius: 0;
-    border-color: var(--select);
+    border-color: var(--color-2);
 }
 
 .custom-select-arrow {
@@ -39,7 +39,7 @@
     right: 0;
     max-height: 0;
     overflow: hidden;
-    background-color: var(--select-option);
+    background-color: var(--color-1);
     border-bottom-left-radius: var(--border-radius);
     border-bottom-right-radius: var(--border-radius);
     z-index: 1000;
@@ -61,12 +61,12 @@
 .custom-select-option {
     padding: 10px 12px;
     font-size: 14px;
-    color: var(--tab-content-text);
+    color: var(--text-1);
     cursor: pointer;
 }
 
 .custom-select-option:hover {
-    background-color: var(--select-option-hover);
+    background-color: var(--color-3);
 }
 
 .custom-select-option:last-child {
@@ -80,12 +80,12 @@
 }
 
 .custom-select-option-selected {
-    background-color: var(--select-option-selected);
-    color: var(--select-option-selected-text);
+    background-color: var(--color-4);
+    color: var(--text-2);
 }
 
 .custom-select-option-selected:hover {
-    background-color: var(--select-option-selected);
+    background-color: var(--color-4);
 }
 
 .custom-select-option-selected:last-child {

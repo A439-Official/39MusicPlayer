@@ -1,36 +1,121 @@
-#content-playlist table {
-    width: 100%;
-    border-collapse: collapse;
-    margin-top: 16px;
-}
-
-#content-playlist th {
-    padding: 12px 16px;
-    text-align: left;
-    background-color: var(--tab-title);
-    color: var(--tab-title-text);
+/* 播放列表标题 */
+#playlist-title {
+    margin-bottom: 20px;
+    color: var(--text-1);
+    font-size: 24px;
     font-weight: bold;
 }
 
-#content-playlist td {
-    padding: 12px 16px;
-    border-bottom: 1px solid var(--input-border);
+/* 空状态提示 */
+#playlist-empty-msg {
+    text-align: center;
+    color: var(--text-2);
+    padding: 40px 20px;
+    font-size: 16px;
 }
 
-#content-playlist tr:hover {
-    background-color: var(--select-hover);
+/* 列表容器 */
+#playlist-list-container {
+    display: flex;
+    flex-direction: column;
 }
 
-#content-playlist button {
-    padding: 6px 12px;
+/* 歌曲列表项 */
+.song-list-item {
+    display: flex;
+    align-items: center;
+    padding: 16px 0;
+    border-bottom: 1px solid var(--color-5);
+    transition: background-color 0.2s ease;
+}
+
+.song-list-item:hover {
+    background-color: var(--color-3);
+}
+
+/* 最后一个列表项移除分隔线 */
+.song-list-item:last-child {
+    border-bottom: none;
+}
+
+/* 歌曲信息区域 */
+.song-list-item > div:first-child {
+    flex: 1;
+    min-width: 0; /* 防止文本溢出 */
+    padding-right: 16px;
+}
+
+/* 歌曲标题 */
+.song-list-item .song-title {
+    font-size: 16px;
+    font-weight: bold;
+    color: var(--text-1);
+    margin-bottom: 4px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 艺术家 */
+.song-list-item .song-artist {
+    font-size: 14px;
+    color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+/* 操作按钮区域 */
+.song-list-item > div:last-child {
+    display: flex;
+    gap: 12px;
+    flex-shrink: 0;
+}
+
+/* 按钮基础样式 */
+.song-list-item button {
+    padding: 8px 20px;
     border-radius: var(--border-radius);
-    border: none;
-    background-color: var(--tab-title);
-    color: var(--tab-title-text);
     cursor: pointer;
-    transition: background-color 0.3s;
+    font-weight: 500;
+    transition: all 0.2s ease;
+    font-size: 14px;
+    min-width: 80px;
+    text-align: center;
 }
 
-#content-playlist button:hover {
-    background-color: var(--tab-title-hover);
+/* 播放按钮 */
+.song-list-item .play-button {
+    background-color: var(--color-4);
+    color: var(--text-1);
+    border: none;
+}
+
+.song-list-item .play-button:hover {
+    background-color: var(--color-3);
+    transform: scale(1.05);
+}
+
+/* 删除按钮 */
+.song-list-item .delete-button {
+    background-color: transparent;
+    color: var(--text-2);
+    border: 1px solid var(--color-5);
+}
+
+.song-list-item .delete-button:hover {
+    background-color: rgba(255, 0, 0, 0.1);
+    color: #ff4444;
+    border-color: #ff4444;
+}
+
+/* 播放列表选择器 */
+#playlist-select-container {
+    margin-bottom: 24px;
+}
+
+#playlist-select-container label {
+    margin-right: 12px;
+    color: var(--text-1);
+    font-weight: 500;
 }

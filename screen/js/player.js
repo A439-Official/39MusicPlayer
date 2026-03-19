@@ -39,12 +39,14 @@ async function playSong(songId) {
 
     const songInfo = await window.musicApi.getSongInfo(songId);
     if (currentSongId === songId) {
-        const titleEl = document.getElementById("song-title");
-        if (titleEl) titleEl.textContent = songInfo?.name || songId;
-        const artistEl = document.getElementById("song-artist");
-        if (artistEl) {
-            const artistText = songInfo?.artist ? (Array.isArray(songInfo.artist) ? songInfo.artist.join(" & ") : songInfo.artist) : "";
-            artistEl.textContent = artistText;
+        const titleEl = document.getElementsByClassName("data-title");
+        for (const el of titleEl) {
+            el.textContent = songInfo?.name || songId;
+        }
+        const artistText = songInfo?.artist ? (Array.isArray(songInfo.artist) ? songInfo.artist.join(" & ") : songInfo.artist) : "";
+        const artistEl = document.getElementsByClassName("data-artist");
+        for (const el of artistEl) {
+            el.textContent = artistText;
         }
     }
 

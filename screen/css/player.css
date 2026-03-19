@@ -173,7 +173,7 @@
     display: flex;
     flex-direction: column;
     margin: 0px 30px;
-    padding: 0px 65px;
+    padding: 0px 25px;
     align-items: flex-start;
 }
 
@@ -196,6 +196,7 @@
     width: 300px;
     white-space: nowrap;
     display: flex;
+    margin: 10px 0px;
 }
 
 .titleartist-box p {

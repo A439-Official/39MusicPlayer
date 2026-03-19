@@ -39,7 +39,8 @@
                     ]
                 }
             ],
-            "requestedExecutionLevel": "asInvoker"
+            "requestedExecutionLevel": "asInvoker",
+            "icon": "resources/icon.ico"
         },
         "nsis": {
             "oneClick": false,

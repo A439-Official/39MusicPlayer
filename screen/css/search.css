@@ -20,7 +20,7 @@
 
 #search-results-table thead {
     background-color: var(--color-5);
-    color: var(--text-2);
+    color: var(--text-1);
 }
 
 #search-results-table th {

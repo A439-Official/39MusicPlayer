@@ -28,5 +28,15 @@
         "--color-4": "#e0e0e0",
         "--color-5": "#e0e0e0",
         "--border-radius": "8px"
+    },
+    "AliceBlue": {
+        "--text-1": "#ffffff",
+        "--text-2": "#000000",
+        "--color-1": "#275dc4",
+        "--color-2": "#1a7ae1",
+        "--color-3": "#2c95e3",
+        "--color-4": "#3daee4",
+        "--color-5": "#6eb8e9",
+        "--border-radius": "8px"
     }
 }

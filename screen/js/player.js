@@ -1,5 +1,6 @@
 let currentAudio = new Audio();
 let currentSongId = null;
+let currentBlobUrl = null;
 let updateInterval = null;
 let seekBar = null;
 let currentTimeEl = null;
@@ -7,7 +8,18 @@ let totalTimeEl = null;
 let loadedMetadataHandler = null;
 let errorHandler = null;
 
+function cleanupCurrentBlobUrl() {
+    if (currentBlobUrl && currentBlobUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(currentBlobUrl);
+        if (window.musicApi && window.musicApi.revokeBlobUrl && currentSongId) {
+            window.musicApi.revokeBlobUrl(currentSongId);
+        }
+        currentBlobUrl = null;
+    }
+}
+
 async function playSong(songId) {
+    cleanupCurrentBlobUrl();
     currentSongId = songId;
 
     // 移除之前的事件监听器
@@ -57,6 +69,10 @@ async function playSong(songId) {
     }
 
     currentAudio.src = songData.url;
+    if (songData.url && songData.url.startsWith("blob:")) {
+        currentBlobUrl = songData.url;
+    }
+
     currentAudio.load();
     setupSeekBar();
 

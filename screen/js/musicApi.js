@@ -7,6 +7,7 @@ const pendingPromises = {
     songs: {},
     lyrics: {},
     mvs: {},
+    audio: {}, // 添加音频下载的并发控制
 };
 
 // 并发控制
@@ -150,26 +151,153 @@ window.musicApi.search = async (text, limit = 30, page = 0) => {
     return songs.map((song) => parseSong(song));
 };
 
-// 获取歌曲URL
+// 下载音频文件
+async function fetchAudio(url, retries = 3) {
+    return enqueueRequest(async () => {
+        let lastError;
+        for (let i = 0; i < retries; i++) {
+            try {
+                const response = await fetch(url);
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                // 获取Content-Type头来检测MIME类型
+                const contentType = response.headers.get("content-type") || "audio/mpeg";
+                const arrayBuffer = await response.arrayBuffer();
+                return {
+                    data: new Uint8Array(arrayBuffer),
+                    mimeType: contentType,
+                };
+            } catch (error) {
+                lastError = error;
+                console.warn(`Audio download attempt ${i + 1} failed. Retrying...`);
+                if (i === retries - 1) {
+                    console.error("All audio download retries failed. Last error:", error);
+                    return null;
+                }
+                await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
+            }
+        }
+        console.error("Unexpected error in audio download retry logic", lastError);
+        return null;
+    });
+}
+
+// blobURL管理
+const blobUrlCache = new Map();
+
+function createBlobUrl(audioData, mimeType) {
+    const blob = new Blob([audioData], { type: mimeType });
+    const blobUrl = URL.createObjectURL(blob);
+    return blobUrl;
+}
+
+function revokeBlobUrl(blobUrl) {
+    if (blobUrl && blobUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(blobUrl);
+    }
+}
+
+// 后台下载并缓存音频文件（简化版）
+async function downloadAndCacheAudio(id, audioUrl) {
+    const cacheKey = `${id}_audio`;
+
+    // 防止重复下载
+    if (pendingPromises.audio[id]) return;
+
+    // 标记为正在下载
+    pendingPromises.audio[id] = true;
+
+    try {
+        const audioResult = await fetchAudio(audioUrl);
+        if (audioResult?.data) {
+            await electronAPI.saveCache(cacheKey, audioResult.data);
+            const mimeTypeBuffer = new TextEncoder().encode(audioResult.mimeType);
+            await electronAPI.saveCache(`${cacheKey}_mime`, mimeTypeBuffer);
+        }
+    } catch (error) {
+        // 静默失败，不影响播放
+    } finally {
+        delete pendingPromises.audio[id];
+    }
+}
+
+// 获取歌曲URL（简化版）
 window.musicApi.getSongUrl = async (id) => {
+    const cacheKey = `${id}_audio`;
+
+    // 检查缓存
+    const audioBuffer = await electronAPI.getCache(cacheKey);
+    if (audioBuffer) {
+        const mimeTypeBuffer = await electronAPI.getCache(`${cacheKey}_mime`);
+        const mimeType = mimeTypeBuffer ? new TextDecoder().decode(mimeTypeBuffer) : "audio/mpeg";
+        const blobUrl = createBlobUrl(audioBuffer, mimeType);
+        if (blobUrlCache.has(id)) {
+            revokeBlobUrl(blobUrlCache.get(id));
+        }
+        blobUrlCache.set(id, blobUrl);
+        return { id, url: blobUrl, fromCache: true };
+    }
+
+    // 获取歌曲信息
     const buffer = await electronAPI.getCache(`${id}_info`);
     let song_info = buffer ? bufferToJson(buffer) : null;
     const info = song_info || (await window.musicApi.getSongInfo(id));
     if (!info) return null;
-    if (info.url) return { id, url: info.url };
-    const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
-    const urlData = mainData?.data?.[0];
-    if (info.fee > 0) {
-        const backupData = await fetchJson(`${backupApi}?id=${id}&type=json&level=lossless`);
-        if (backupData?.data?.url) {
-            info.url = backupData.data.url;
-            return { id, url: info.url, fromBackup: true };
+
+    // 获取音频URL
+    let audioUrl = info.url;
+    if (!audioUrl) {
+        const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
+        const urlData = mainData?.data?.[0];
+        if (info.fee > 0) {
+            const backupData = await fetchJson(`${backupApi}?id=${id}&type=json&level=lossless`);
+            if (backupData?.data?.url) {
+                audioUrl = backupData.data.url;
+            }
+        }
+        audioUrl = audioUrl || urlData?.url;
+        if (!audioUrl) return null;
+        info.url = audioUrl;
+        const infoBuffer = jsonToBuffer(info);
+        if (infoBuffer) {
+            await electronAPI.saveCache(`${id}_info`, infoBuffer);
         }
     }
-    if (!urlData?.url) return null;
-    info.url = urlData.url;
-    return { id, url: info.url };
+    downloadAndCacheAudio(id, audioUrl);
+    return { id, url: audioUrl, fromCache: false };
 };
+
+// 清理blobURL
+window.musicApi.revokeBlobUrl = (id) => {
+    if (blobUrlCache.has(id)) {
+        revokeBlobUrl(blobUrlCache.get(id));
+        blobUrlCache.delete(id);
+    }
+};
+
+// 清理所有blobURL
+window.musicApi.revokeAllBlobUrls = () => {
+    for (const blobUrl of blobUrlCache.values()) {
+        revokeBlobUrl(blobUrl);
+    }
+    blobUrlCache.clear();
+};
+
+// 页面卸载时清理所有blobURL
+if (typeof window !== "undefined") {
+    window.addEventListener("beforeunload", () => {
+        if (window.musicApi && window.musicApi.revokeAllBlobUrls) {
+            window.musicApi.revokeAllBlobUrls();
+        }
+    });
+    window.addEventListener("pagehide", () => {
+        if (window.musicApi && window.musicApi.revokeAllBlobUrls) {
+            window.musicApi.revokeAllBlobUrls();
+        }
+    });
+}
 
 // 获取歌词
 window.musicApi.getLyric = async (id) => {

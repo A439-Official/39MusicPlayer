@@ -1,6 +1,6 @@
 // 等待DOM加载完成
 document.addEventListener("DOMContentLoaded", function () {
-    // 确保currentAudio存在（你的音频元素）
+    // 确保currentAudio存在
     if (typeof currentAudio === "undefined") {
         console.warn("Audio element not found");
         return;
@@ -18,26 +18,53 @@ document.addEventListener("DOMContentLoaded", function () {
     window.addEventListener("resize", resizeCanvas);
     resizeCanvas();
 
-    // 创建音频上下文和分析器
     let audioCtx;
     let analyser;
     let dataArray;
     let source;
+    const fftSize = 2 ** 11;
 
     function initAudioContext() {
-        // 创建音频上下文
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser();
-        analyser.fftSize = 1024; // 频率分辨率
-
-        // 连接音频源
+        analyser.fftSize = fftSize;
+        analyser.smoothingTimeConstant = 0.5;
         source = audioCtx.createMediaElementSource(currentAudio);
         source.connect(analyser);
         analyser.connect(audioCtx.destination);
-
-        // 创建用于存储频率数据的数组
         const bufferLength = analyser.frequencyBinCount;
         dataArray = new Uint8Array(bufferLength);
+    }
+
+    function drawSpectrogram() {
+        if (!analyser) return;
+        analyser.getByteFrequencyData(dataArray);
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        const frame = dataArray;
+
+        ctx.imageSmoothingEnabled = true;
+        const color = getComputedStyle(document.documentElement).getPropertyValue("--text-1").trim();
+        ctx.strokeStyle = color || "#000000";
+        ctx.lineWidth = 3;
+        ctx.lineCap = "round";
+        ctx.lineJoin = "round";
+        ctx.beginPath();
+        ctx.moveTo(0, canvas.height);
+        for (let f = 0; f < frame.length; f += 1) {
+            const x = (1 - (1 - f / frame.length) ** 3) * canvas.width;
+            const y = canvas.height - (frame[f] / 255) ** 5 * canvas.height * 0.95;
+            if (f === 0) {
+                ctx.lineTo(x, y);
+            } else {
+                const prevX = (1 - (1 - (f - 1) / frame.length) ** 3) * canvas.width;
+                const prevY = canvas.height - (frame[f - 1] / 255) ** 5 * canvas.height;
+                const cpX = (prevX + x) / 2;
+                const cpY = (prevY + y) / 2;
+                ctx.quadraticCurveTo(prevX, prevY, cpX, cpY);
+            }
+        }
+        ctx.lineTo(canvas.width, canvas.height);
+        ctx.stroke();
     }
 
     // 动画循环
@@ -45,36 +72,9 @@ document.addEventListener("DOMContentLoaded", function () {
         if (!analyser) return;
 
         requestAnimationFrame(draw);
-
-        // 获取频率数据
-        analyser.getByteFrequencyData(dataArray);
-
-        // 清除画布
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // 绘制波纹效果
-        const barWidth = (canvas.width / dataArray.length) * 1.5;
-        let x = 0;
-
-        for (let i = 0; i < dataArray.length; i++) {
-            const barHeight = dataArray[i] / 2.5;
-
-            // 绘制矩形条
-            ctx.fillStyle = `rgb(0,${barHeight + 100}, 255)`;
-            ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-
-            // 添加渐变效果
-            const gradient = ctx.createLinearGradient(x, canvas.height - barHeight, x, canvas.height);
-            gradient.addColorStop(0, "rgba(0, 255, 255, 0.3)");
-            gradient.addColorStop(1, "rgba(0, 255, 255, 0)");
-            ctx.fillStyle = gradient;
-            ctx.fillRect(x, canvas.height - barHeight, barWidth, barHeight);
-
-            x += barWidth + 1;
-        }
+        drawSpectrogram();
     }
 
-    // 初始化音频上下文并开始动画
     function startVisualizer() {
         if (!audioCtx) {
             initAudioContext();
@@ -82,20 +82,17 @@ document.addEventListener("DOMContentLoaded", function () {
         draw();
     }
 
-    // 当音频开始播放时启动可视化效果
     currentAudio.addEventListener("play", startVisualizer);
 
-    // 如果音频已经在播放（例如从暂停恢复），也启动可视化
     if (!currentAudio.paused) {
         startVisualizer();
     }
 
-    // 处理音频暂停/停止
-    currentAudio.addEventListener("pause", function () {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
+    currentAudio.addEventListener("pause", function () {});
 
-    currentAudio.addEventListener("ended", function () {
+    currentAudio.addEventListener("ended", function () {});
+
+    window.resetSpectrogram = function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-    });
+    };
 });

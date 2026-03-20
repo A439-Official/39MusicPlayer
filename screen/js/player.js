@@ -109,12 +109,26 @@ async function playSong(songId) {
     // 开始播放
     try {
         await currentAudio.play();
+        const pauseBtn = document.getElementById('pause-btn');
+        if (pauseBtn) {
+            pauseBtn.innerHTML = `
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+            `;
+            // 添加新的点击事件（使用togglePause函数）
+            pauseBtn.onclick = function() {
+                togglePause(this);
+            };
+        }
     } catch (error) {
         console.error("Failed to play audio:", error);
     }
 
     currentAudio.addEventListener("timeupdate", updateSeekBar);
 }
+
+// 在页面加载时初始化播放器
+document.addEventListener('DOMContentLoaded', initializePlayer);
 
 function setupSeekBar() {
     if (!seekBar) {
@@ -171,7 +185,12 @@ function formatTime(seconds) {
     return `${mins.toString().padStart(2, "0")}:${secs.toString().padStart(2, "0")}`;
 }
 
-function togglePause() {
+function togglePause(buttonElement) {
+    if (!buttonElement) {
+        console.error("Button element not found!");
+        return;
+    }
+
     if (!currentAudio || !currentAudio.src) {
         console.log("No audio to play/pause");
         return;
@@ -180,9 +199,16 @@ function togglePause() {
         if (currentAudio.paused) {
             currentAudio.play();
             console.log("Audio resumed");
+            buttonElement.innerHTML = `
+                <rect x="6" y="4" width="4" height="16"></rect>
+                <rect x="14" y="4" width="4" height="16"></rect>
+            `;
         } else {
             currentAudio.pause();
             console.log("Audio paused");
+            buttonElement.innerHTML = `
+                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+            `;
         }
     } catch (error) {
         console.error("Error toggling pause:", error);

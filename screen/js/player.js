@@ -113,14 +113,14 @@ async function playSong(songId) {
     loadLyrics(songId);
     try {
         await currentAudio.play();
-        const pauseBtn = document.getElementById('pause-btn');
+        const pauseBtn = document.getElementById("pause-btn");
         if (pauseBtn) {
             pauseBtn.innerHTML = `
                 <rect x="6" y="4" width="4" height="16"></rect>
                 <rect x="14" y="4" width="4" height="16"></rect>
             `;
             // 添加新的点击事件（使用togglePause函数）
-            pauseBtn.onclick = function() {
+            pauseBtn.onclick = function () {
                 togglePause(this);
             };
         }
@@ -130,7 +130,6 @@ async function playSong(songId) {
 
     currentAudio.addEventListener("timeupdate", updateSeekBar);
 }
-
 
 function setupSeekBar() {
     if (!seekBar) {

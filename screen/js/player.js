@@ -131,8 +131,6 @@ async function playSong(songId) {
     currentAudio.addEventListener("timeupdate", updateSeekBar);
 }
 
-// 在页面加载时初始化播放器
-document.addEventListener('DOMContentLoaded', initializePlayer);
 
 function setupSeekBar() {
     if (!seekBar) {

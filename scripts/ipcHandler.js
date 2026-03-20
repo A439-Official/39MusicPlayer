@@ -1,4 +1,4 @@
-const { ipcMain, dialog } = require("electron");
+const { ipcMain } = require("electron");
 const CacheManager = require("./cacheManager");
 
 function registerIPC(app, configManager) {
@@ -6,18 +6,6 @@ function registerIPC(app, configManager) {
 
     ipcMain.handle("quit", (event) => {
         app.quit();
-    });
-
-    ipcMain.handle("open-dialog", async (event, options) => {
-        const browserWindow = event.sender.getOwnerBrowserWindow ? event.sender.getOwnerBrowserWindow() : null;
-        const result = await dialog.showOpenDialog(browserWindow, options);
-        return result;
-    });
-
-    ipcMain.handle("save-dialog", async (event, options) => {
-        const browserWindow = event.sender.getOwnerBrowserWindow ? event.sender.getOwnerBrowserWindow() : null;
-        const result = await dialog.showSaveDialog(browserWindow, options);
-        return result;
     });
 
     // 获取配置值

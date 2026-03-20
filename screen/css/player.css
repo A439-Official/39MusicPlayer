@@ -203,3 +203,38 @@
     text-overflow: ellipsis;
     overflow: hidden;
 }
+
+/* 歌词容器样式 */
+.lyrics-container {
+    width: 100%;
+    height: 300px;
+    overflow: hidden;
+    position: relative;
+    margin-top: 20px;
+    padding: 10px;
+}
+
+.lyrics-lines {
+    height: 100%;
+    overflow-y: auto;
+    scroll-behavior: smooth;
+    padding-right: 10px;
+}
+
+.lyric-line {
+    padding: 8px 12px;
+    margin: 4px 0;
+    font-size: 16px;
+    color: var(--text-2);
+    transition: all 0.3s ease;
+    border-radius: 4px;
+    cursor: default;
+    user-select: none;
+}
+
+.lyric-line.active {
+    color: var(--text-1);
+    font-size: 18px;
+    font-weight: bold;
+    transform: scale(1.02);
+}

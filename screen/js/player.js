@@ -7,6 +7,10 @@ let currentTimeEl = null;
 let totalTimeEl = null;
 let loadedMetadataHandler = null;
 let errorHandler = null;
+let currentLyrics = [];
+let currentLyricIndex = -1;
+let lyricsContainer = null;
+let lyricsLines = null;
 
 function cleanupCurrentBlobUrl() {
     if (currentBlobUrl && currentBlobUrl.startsWith("blob:")) {
@@ -106,7 +110,7 @@ async function playSong(songId) {
         currentAudio.addEventListener("error", errorHandler);
     });
 
-    // 开始播放
+    loadLyrics(songId);
     try {
         await currentAudio.play();
         const pauseBtn = document.getElementById('pause-btn');
@@ -160,6 +164,8 @@ function updateSeekBar() {
     if (totalTimeEl.textContent === "00:00") {
         totalTimeEl.textContent = formatTime(Math.floor(duration));
     }
+
+    updateLyricHighlight(currentTime);
 }
 
 function handleSeek() {
@@ -172,6 +178,7 @@ function handleSeek() {
     if (currentTimeEl) {
         currentTimeEl.textContent = formatTime(seekTime);
     }
+    updateLyricHighlight(seekTime);
 }
 
 // MM:SS
@@ -212,5 +219,99 @@ function togglePause(buttonElement) {
         }
     } catch (error) {
         console.error("Error toggling pause:", error);
+    }
+}
+
+// 初始化歌词元素引用
+function initLyricsElements() {
+    if (!lyricsContainer) {
+        lyricsContainer = document.getElementById("lyrics-container");
+    }
+    if (!lyricsLines) {
+        lyricsLines = document.getElementById("lyrics-lines");
+    }
+}
+
+// 加载歌词
+async function loadLyrics(songId) {
+    initLyricsElements();
+
+    currentLyrics = [];
+    currentLyricIndex = -1;
+    if (lyricsLines) {
+        lyricsLines.innerHTML = "";
+    }
+
+    try {
+        const lyricData = await window.musicApi.getLyric(songId);
+        if (!lyricData) {
+            console.log("无歌词数据");
+            return;
+        }
+
+        currentLyrics = lyricData.lyrics;
+
+        // 渲染歌词
+        renderLyrics(lyricData.lyrics);
+    } catch (error) {
+        console.error("加载歌词失败:", error);
+    }
+}
+
+// 渲染歌词
+function renderLyrics(lyrics) {
+    if (!lyricsLines) return;
+
+    lyricsLines.innerHTML = "";
+
+    if (lyrics.length === 0) {
+        const emptyLine = document.createElement("div");
+        emptyLine.className = "lyric-line";
+        emptyLine.textContent = "暂无歌词";
+        lyricsLines.appendChild(emptyLine);
+        return;
+    }
+
+    lyrics.forEach((lyric, index) => {
+        const lineEl = document.createElement("div");
+        lineEl.className = "lyric-line";
+        lineEl.dataset.index = index;
+        lineEl.textContent = lyric.text || "";
+        lyricsLines.appendChild(lineEl);
+    });
+}
+
+// 根据当前时间更新歌词高亮和滚动
+function updateLyricHighlight(currentTime) {
+    if (currentLyrics.length === 0 || !lyricsLines) return;
+
+    // 找到当前时间对应的歌词索引
+    let newIndex = -1;
+    for (let i = 0; i < currentLyrics.length; i++) {
+        if (currentTime >= currentLyrics[i].time) {
+            newIndex = i;
+        } else {
+            break;
+        }
+    }
+
+    // 如果索引没有变化，无需更新
+    if (newIndex === currentLyricIndex) return;
+
+    const oldLine = lyricsLines.querySelector(".lyric-line.active");
+    if (oldLine) {
+        oldLine.classList.remove("active");
+    }
+    currentLyricIndex = newIndex;
+    if (currentLyricIndex >= 0) {
+        const newLine = lyricsLines.querySelector(`.lyric-line[data-index="${currentLyricIndex}"]`);
+        if (newLine) {
+            newLine.classList.add("active");
+            const containerHeight = lyricsLines.clientHeight;
+            const lineHeight = newLine.offsetHeight;
+            const lineTop = newLine.offsetTop;
+
+            lyricsLines.scrollTop = lineTop - containerHeight / 2 + lineHeight / 2;
+        }
     }
 }

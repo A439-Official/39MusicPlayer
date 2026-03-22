@@ -1,5 +1,3 @@
-const volumeSlider = document.getElementById("volumeSlider");
-
 // 移除所有活动的标签页和内容
 function removeAllActiveTabs() {
     document.querySelectorAll(".tab-title.active, .tab-content.active").forEach((el) => el.classList.remove("active"));
@@ -23,33 +21,3 @@ document.addEventListener("DOMContentLoaded", () => {
         });
     });
 });
-
-if (typeof currentAudio !== "undefined" && volumeSlider) {
-    const savedVolume = localStorage.getItem("playerVolume");
-    const initialVolume = savedVolume !== null ? parseFloat(savedVolume) : 1;
-
-    currentAudio.volume = initialVolume;
-    volumeSlider.value = initialVolume;
-
-    volumeSlider.addEventListener("input", function () {
-        const volume = parseFloat(this.value);
-        currentAudio.volume = volume;
-        localStorage.setItem("playerVolume", volume);
-    });
-
-    volumeSlider.addEventListener("dblclick", function () {
-        if (currentAudio.volume > 0) {
-            // 静音
-            localStorage.setItem("playerVolumeBeforeMute", currentAudio.volume);
-            currentAudio.volume = 0;
-            this.value = 0;
-        } else {
-            // 取消静音
-            const savedVolume = localStorage.getItem("playerVolumeBeforeMute") || localStorage.getItem("playerVolume");
-            const volumeToSet = parseFloat(savedVolume) || 1;
-            currentAudio.volume = volumeToSet;
-            this.value = volumeToSet;
-            localStorage.setItem("playerVolume", volumeToSet);
-        }
-    });
-}

@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", function () {
     let analyser;
     let dataArray;
     let source;
+    let gainNode;
     const fftSize = 2 ** 11;
 
     function initAudioContext() {
@@ -30,10 +31,17 @@ document.addEventListener("DOMContentLoaded", function () {
         analyser.fftSize = fftSize;
         analyser.smoothingTimeConstant = 0.5;
         source = audioCtx.createMediaElementSource(currentAudio);
+        currentAudio.volume = 0.25;
         source.connect(analyser);
-        analyser.connect(audioCtx.destination);
+        gainNode = audioCtx.createGain();
+        analyser.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
         const bufferLength = analyser.frequencyBinCount;
         dataArray = new Uint8Array(bufferLength);
+        window.volumeGainNode = gainNode;
+        const savedVolume = localStorage.getItem("playerVolume");
+        const initialVolume = savedVolume !== null ? parseFloat(savedVolume) : 1;
+        gainNode.gain.value = initialVolume;
     }
 
     function drawSpectrogram() {
@@ -51,13 +59,13 @@ document.addEventListener("DOMContentLoaded", function () {
         ctx.beginPath();
         ctx.moveTo(0, canvas.height);
         for (let f = 0; f < frame.length; f += 1) {
-            const x = (1 - (1 - f / frame.length) ** 3) * canvas.width;
-            const y = canvas.height - (frame[f] / 255) ** 5 * canvas.height * 0.95;
+            const x = (1 - (1 - f / frame.length) ** 4) * canvas.width;
+            const y = canvas.height - (frame[f] / 255) ** 4 * canvas.height * 0.95;
             if (f === 0) {
                 ctx.lineTo(x, y);
             } else {
-                const prevX = (1 - (1 - (f - 1) / frame.length) ** 3) * canvas.width;
-                const prevY = canvas.height - (frame[f - 1] / 255) ** 5 * canvas.height;
+                const prevX = (1 - (1 - (f - 1) / frame.length) ** 4) * canvas.width;
+                const prevY = canvas.height - (frame[f - 1] / 255) ** 4 * canvas.height;
                 const cpX = (prevX + x) / 2;
                 const cpY = (prevY + y) / 2;
                 ctx.quadraticCurveTo(prevX, prevY, cpX, cpY);

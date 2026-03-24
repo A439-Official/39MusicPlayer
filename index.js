@@ -9,6 +9,19 @@ const APP_NAME = "39MusicPlayer";
 
 let mainWindow = null;
 let configManager = null;
+const appLock = app.requestSingleInstanceLock();
+
+function focus() {
+    if (mainWindow) {
+        if (mainWindow.isMinimized()) {
+            mainWindow.restore();
+        }
+        if (!mainWindow.isVisible()) {
+            mainWindow.show();
+        }
+        mainWindow.focus();
+    }
+}
 
 function createWindow() {
     mainWindow = new BrowserWindow({
@@ -98,30 +111,36 @@ function initializeApp() {
     registerIPC(app, configManager);
 
     createWindow();
-    tray = createTray(app, mainWindow);
+    tray = createTray(app, focus);
 }
 
-app.whenReady().then(() => {
-    app.isQuitting = false;
-    initializeApp();
-    app.on("activate", () => {
-        if (mainWindow === null) {
-            initializeApp();
-        }
+if (!appLock) {
+    app.quit();
+} else {
+    app.on("second-instance", focus);
+
+    app.whenReady().then(() => {
+        app.isQuitting = false;
+        initializeApp();
+        app.on("activate", () => {
+            if (mainWindow === null) {
+                initializeApp();
+            }
+        });
     });
-});
 
-app.on("window-all-closed", () => {});
+    app.on("window-all-closed", () => {});
 
-app.on("before-quit", () => {
-    console.log("Application is quitting...");
-    app.isQuitting = true;
-});
+    app.on("before-quit", () => {
+        console.log("Application is quitting...");
+        app.isQuitting = true;
+    });
 
-process.on("uncaughtException", (error) => {
-    console.error("Uncaught Exception:", error);
-});
+    process.on("uncaughtException", (error) => {
+        console.error("Uncaught Exception:", error);
+    });
 
-process.on("unhandledRejection", (reason, promise) => {
-    console.error("Unhandled Rejection at:", promise, "reason:", reason);
-});
+    process.on("unhandledRejection", (reason, promise) => {
+        console.error("Unhandled Rejection at:", promise, "reason:", reason);
+    });
+}

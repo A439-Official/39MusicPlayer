@@ -217,14 +217,15 @@
 .lyrics-container::before {
     content: "";
     position: absolute;
+    pointer-events: none;
     top: 0;
     left: 0;
     width: 100%;
     height: 100%;
     border-radius: inherit;
     box-shadow:
-        inset 0px 67px 20px -25px var(--color-2),
-        inset 0px -67px 20px -30px var(--color-2);
+        inset 0px 67px 20px -22px var(--color-2-1),
+        inset 0px -67px 20px -15px var(--color-2-1);
 }
 
 .lyrics-lines {
@@ -232,6 +233,7 @@
     overflow-y: auto;
     scroll-behavior: smooth;
     padding-right: 10px;
+    padding-block: 100px;
 }
 
 .lyric-line {

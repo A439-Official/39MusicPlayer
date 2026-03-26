@@ -3,7 +3,6 @@ const volumeSlider = document.getElementById("volumeSlider");
 if (typeof currentAudio !== "undefined" && volumeSlider) {
     const savedVolume = localStorage.getItem("playerVolume");
     const initialVolume = savedVolume !== null ? parseFloat(savedVolume) : 1;
-    currentAudio.volume = 0.25;
     volumeSlider.value = initialVolume;
     function setVolume(volume) {
         localStorage.setItem("playerVolume", volume);

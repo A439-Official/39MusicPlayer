@@ -24,20 +24,23 @@ document.addEventListener("DOMContentLoaded", function () {
     let source;
     let gainNode;
     const fftSize = 2 ** 11;
+    const waveHeight = 0.5;
+    let frameHistory = [];
+    const maxHistoryTime = 43.9; // 1秒限制（毫秒）
 
     function initAudioContext() {
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = fftSize;
-        analyser.smoothingTimeConstant = 0.5;
+        analyser.smoothingTimeConstant = 0;
         source = audioCtx.createMediaElementSource(currentAudio);
-        currentAudio.volume = 0.25;
         source.connect(analyser);
         gainNode = audioCtx.createGain();
         analyser.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         const bufferLength = analyser.frequencyBinCount;
-        dataArray = new Uint8Array(bufferLength);
+        dataArray = new Float32Array(bufferLength);
+        frameHistory = [];
         window.volumeGainNode = gainNode;
         const savedVolume = localStorage.getItem("playerVolume");
         const initialVolume = savedVolume !== null ? parseFloat(savedVolume) : 1;
@@ -46,9 +49,38 @@ document.addEventListener("DOMContentLoaded", function () {
 
     function drawSpectrogram() {
         if (!analyser) return;
-        analyser.getByteFrequencyData(dataArray);
+        analyser.getFloatFrequencyData(dataArray);
+        const currentTime = Date.now();
+        frameHistory.push({
+            time: currentTime,
+            data: dataArray.slice(),
+        });
+        frameHistory = frameHistory.filter((frame) => currentTime - frame.time <= maxHistoryTime);
+        const avgFrame = new Float32Array(dataArray.length);
+        if (frameHistory.length > 0) {
+            const weights = [];
+            let weightSum = 0;
+            for (let j = 0; j < frameHistory.length; j++) {
+                const timeDiff = currentTime - frameHistory[j].time;
+                const weight = Math.exp(-timeDiff / 200);
+                weights.push(weight);
+                weightSum += weight;
+            }
+            const normalizedWeights = weights.map((w) => w / weightSum);
+            for (let i = 0; i < dataArray.length; i++) {
+                let sum = 0;
+                for (let j = 0; j < frameHistory.length; j++) {
+                    sum += frameHistory[j].data[i] * normalizedWeights[j];
+                }
+                avgFrame[i] = sum;
+            }
+        }
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        const frame = dataArray;
+        const frame = avgFrame;
+        const minDecibels = analyser.minDecibels;
+        const maxDecibels = analyser.maxDecibels;
+        const range = maxDecibels - minDecibels;
 
         ctx.imageSmoothingEnabled = true;
         const color = getComputedStyle(document.documentElement).getPropertyValue("--text-1").trim();
@@ -59,13 +91,17 @@ document.addEventListener("DOMContentLoaded", function () {
         ctx.beginPath();
         ctx.moveTo(0, canvas.height);
         for (let f = 0; f < frame.length; f += 1) {
-            const x = (1 - (1 - f / frame.length) ** 4) * canvas.width;
-            const y = canvas.height - (frame[f] / 255) ** 4 * canvas.height * 0.95;
+            const x = (1 - (1 - f / frame.length) ** 4) * canvas.width * 1.05;
+            const db = frame[f];
+            const ratio = (db - minDecibels) / range;
+            const y = canvas.height - ratio ** 4 * waveHeight * canvas.height;
             if (f === 0) {
                 ctx.lineTo(x, y);
             } else {
-                const prevX = (1 - (1 - (f - 1) / frame.length) ** 4) * canvas.width;
-                const prevY = canvas.height - (frame[f - 1] / 255) ** 4 * canvas.height;
+                const prevX = (1 - (1 - (f - 1) / frame.length) ** 4) * canvas.width * 1.05;
+                const prevDb = frame[f - 1];
+                const prevRatio = (prevDb - minDecibels) / range;
+                const prevY = canvas.height - prevRatio ** 4 * waveHeight * canvas.height;
                 const cpX = (prevX + x) / 2;
                 const cpY = (prevY + y) / 2;
                 ctx.quadraticCurveTo(prevX, prevY, cpX, cpY);
@@ -102,5 +138,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     window.resetSpectrogram = function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+        frameHistory = []; // 清空历史帧
     };
 });

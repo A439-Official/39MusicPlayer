@@ -1,13 +1,13 @@
 window.musicApi = window.musicApi || {};
 
 const rootUrl = "https://ncm.zhenxin.me";
-const backupApi = "https://api.cenguigui.cn/api/netease/music_v1.php";
+const backupApi = "https://103.36.90.170/api/netease/music_v1.php";
 
 const pendingPromises = {
     songs: {},
     lyrics: {},
     mvs: {},
-    audio: {}, // 添加音频下载的并发控制
+    audio: {},
 };
 
 // 并发控制
@@ -162,7 +162,6 @@ async function fetchAudio(url, retries = 3) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
 
-                // 获取Content-Type头来检测MIME类型
                 const contentType = response.headers.get("content-type") || "audio/mpeg";
                 const arrayBuffer = await response.arrayBuffer();
                 return {
@@ -199,14 +198,9 @@ function revokeBlobUrl(blobUrl) {
     }
 }
 
-// 后台下载并缓存音频文件（简化版）
 async function downloadAndCacheAudio(id, audioUrl) {
     const cacheKey = `${id}_audio`;
-
-    // 防止重复下载
     if (pendingPromises.audio[id]) return;
-
-    // 标记为正在下载
     pendingPromises.audio[id] = true;
 
     try {
@@ -217,13 +211,12 @@ async function downloadAndCacheAudio(id, audioUrl) {
             await electronAPI.saveCache(`${cacheKey}_mime`, mimeTypeBuffer);
         }
     } catch (error) {
-        // 静默失败，不影响播放
     } finally {
         delete pendingPromises.audio[id];
     }
 }
 
-// 获取歌曲URL（简化版）
+// 获取歌曲URL
 window.musicApi.getSongUrl = async (id) => {
     const cacheKey = `${id}_audio`;
 
@@ -285,7 +278,6 @@ window.musicApi.revokeAllBlobUrls = () => {
     blobUrlCache.clear();
 };
 
-// 页面卸载时清理所有blobURL
 if (typeof window !== "undefined") {
     window.addEventListener("beforeunload", () => {
         if (window.musicApi && window.musicApi.revokeAllBlobUrls) {

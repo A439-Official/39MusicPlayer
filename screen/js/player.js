@@ -64,6 +64,10 @@ async function playSong(songId) {
         for (const el of artistEl) {
             el.textContent = artistText;
         }
+        const coverEl = document.getElementsByClassName("data-cover");
+        for (const el of coverEl) {
+            el.src = songInfo?.pic || "";
+        }
     }
 
     try {

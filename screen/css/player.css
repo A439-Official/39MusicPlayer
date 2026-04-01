@@ -110,6 +110,11 @@
     stroke-linejoin: round;
 }
 
+.buttons svg:hover {
+    cursor: pointer;
+    filter: drop-shadow(0 0 5px var(--text-1));
+}
+
 .buttons button {
     width: 35px;
     height: 48px;
@@ -140,6 +145,7 @@
     .volume-progress-bar {
         display: flex;
     }
+    cursor: pointer;
 }
 
 .volume-progress-bar:hover {
@@ -206,7 +212,7 @@
 
 /* 歌词容器样式 */
 .lyrics-container {
-    width: 80%;
+    width: 100%;
     height: 80%;
     overflow: hidden;
     position: relative;

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, MenuItem } = require("electron");
+const { app, BrowserWindow, Menu, MenuItem, session } = require("electron");
 const path = require("node:path");
 const ConfigManager = require("./scripts/configManager");
 const { registerProtocolHandler } = require("./scripts/protocolHandler");
@@ -105,6 +105,11 @@ function initShortcuts() {
 }
 
 function initializeApp() {
+    session.defaultSession.setCertificateVerifyProc((request, callback) => {
+        console.log("skip SSL verification for", request.hostname);
+        callback(0);
+    });
+
     configManager = new ConfigManager(APP_NAME);
 
     registerProtocolHandler(app);

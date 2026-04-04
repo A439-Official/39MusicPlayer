@@ -98,7 +98,8 @@
     font-weight: 600;
 }
 
-.buttons svg {
+.buttons svg,
+.playback-interface svg {
     width: 30px;
     height: 30px;
     margin-top: 8px;
@@ -115,7 +116,8 @@
     filter: drop-shadow(0 0 5px var(--text-1));
 }
 
-.buttons button {
+.buttons button,
+.playback-interface button {
     width: 35px;
     height: 48px;
     background-color: transparent;
@@ -167,10 +169,12 @@
     flex-direction: row;
 }
 
-#content-player img {
-    width: 350px;
-    height: 350px;
+.player-img {
+    width: 353px;
+    height: 353px;
     margin: 50px;
+    border: 3px solid var(--text-1);
+    box-shadow: 13px 24px 40px -4px var(--text-1);
 }
 
 .text-box {

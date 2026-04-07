@@ -34,13 +34,13 @@
     },
     "AliceBlue": {
         "--text-1": "#ffffff",
-        "--text-2": "#000000",
-        "--color-1": "#275dc4",
-        "--color-2": "#1a7ae1",
-        "--color-2-1": "#1a7ae1dc",
-        "--color-3": "#2c95e3",
-        "--color-4": "#3daee4",
-        "--color-5": "#6eb8e9",
-        "--border-radius": "8px"
+        "--text-2": "#222222",
+        "--color-1": "#1e63d0",
+        "--color-2": "#1a73e8", 
+        "--color-2-1": "#1a73e8cc", 
+        "--color-3": "#4285f4", 
+        "--color-4": "#66a3ff", 
+        "--color-5": "#a8d0ff", 
+        "--border-radius": "8px" 
     }
 }

@@ -111,7 +111,8 @@
     stroke-linejoin: round;
 }
 
-.buttons svg:hover {
+.buttons svg:hover,
+.tab-content svg:hover {
     cursor: pointer;
     filter: drop-shadow(0 0 5px var(--text-1));
 }
@@ -178,6 +179,7 @@
     justify-content: space-evenly;
     align-items: center;
     flex-direction: row;
+    transition: left 0.3s ease-out,opacity 0.3s ease,visibility 0.3s;
 }
 
 .player-img {
@@ -189,7 +191,7 @@
 }
 
 .text-box {
-    width: 650px;
+    width: 450px;
     height: 70%;
     display: flex;
     flex-direction: column;

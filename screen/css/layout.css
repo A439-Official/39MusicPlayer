@@ -9,6 +9,9 @@
     position: absolute;
     top: 0;
     bottom: 80px;
+    opacity: 1;
+    visibility: visible;
+    transition: opacity 0.3s ease, visibility 0.3s ease;
 }
 
 .tab-title {

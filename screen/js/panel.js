@@ -1,3 +1,4 @@
+// 点击播放器面板的关闭按钮，切换播放器面板的显示/隐藏，切换选项卡列表的显示/隐藏
 document.addEventListener("DOMContentLoaded", function () {
     const contentPlayer = document.getElementById("content-player");
     const tabList = document.querySelector(".tab-list");
@@ -12,10 +13,16 @@ document.addEventListener("DOMContentLoaded", function () {
                 contentPlayer.classList.toggle("act");
 
                 // 切换选项卡列表的显示/隐藏
-                if (tabList.style.display === "none") {
-                    tabList.style.display = ""; // 显示
+                if (tabList.style.display === "none" || tabList.style.opacity === "0") {
+                    tabList.style.display = "";// 显示
+                    setTimeout(() => {
+                        tabList.style.opacity = "";
+                    }, 10);
                 } else {
-                    tabList.style.display = "none"; // 隐藏
+                    tabList.style.opacity = "0";
+                    setTimeout(() => {
+                        tabList.style.display = "none"; //隐藏 
+                    }, 300);                    
                 }
             }
         });

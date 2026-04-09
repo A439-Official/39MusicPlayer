@@ -27,8 +27,8 @@ function createWindow() {
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 720,
-        minWidth: 640,
-        minHeight: 360,
+        minWidth: 840,
+        minHeight: 560,
         title: APP_NAME,
         icon: path.join(__dirname, "resources/icon.png"),
         webPreferences: {

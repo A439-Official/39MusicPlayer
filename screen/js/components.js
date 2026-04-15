@@ -120,3 +120,52 @@ class CustomSelect {
         this.select(index);
     }
 }
+
+class ToggleSwitch {
+    constructor(container, checked = false, onChange = null) {
+        this.container = container;
+        this.checked = checked;
+        this.onChange = onChange;
+
+        this.render();
+        this.bindEvents();
+    }
+
+    render() {
+        this.container.innerHTML = "";
+        this.container.className = "toggle-container";
+        this.switchElement = document.createElement("div");
+        this.switchElement.className = "toggle-switch";
+        if (this.checked) {
+            this.switchElement.classList.add("active");
+        }
+        this.container.appendChild(this.switchElement);
+    }
+
+    bindEvents() {
+        this.switchElement.addEventListener("click", (e) => {
+            this.toggle();
+        });
+    }
+
+    toggle() {
+        this.checked = !this.checked;
+        this.switchElement.classList.toggle("active");
+        if (this.onChange) {
+            this.onChange(this.checked);
+        }
+    }
+
+    getValue() {
+        return this.checked;
+    }
+
+    setValue(checked) {
+        this.checked = checked;
+        if (checked) {
+            this.switchElement.classList.add("active");
+        } else {
+            this.switchElement.classList.remove("active");
+        }
+    }
+}

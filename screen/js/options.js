@@ -1,18 +1,17 @@
 document.addEventListener("DOMContentLoaded", function () {
-    const FullscrTogg = document.getElementById("FullscrTogg");
+    const container = document.getElementById("FullscrTogg");
+    if (!container) return;
 
     const savedFullscrState = localStorage.getItem("FullscrState") === "true";
 
-    if (savedFullscrState !== undefined) {
-        FullscrTogg.checked = savedFullscrState;
-    }
-    updateStatus();
-
-    // 添加事件监听器
-    FullscrTogg.addEventListener("change", function () {
-        localStorage.setItem("FullscrState", this.checked);
+    // 创建开关组件
+    const toggleSwitch = new ToggleSwitch(container, savedFullscrState, function (checked) {
+        localStorage.setItem("FullscrState", checked);
         updateStatus();
     });
+
+    // 初始状态更新
+    updateStatus();
 });
 
 // 更新状态显示
@@ -21,8 +20,12 @@ function updateStatus() {
     const contentPlayer = document.getElementById("content-player");
     if (!FullscrTogg) return;
 
+    // 获取内部的 toggle-switch 元素
+    const toggleSwitchElement = FullscrTogg.querySelector(".toggle-switch");
+    if (!toggleSwitchElement) return;
+
     // 输出 FullscrTogg 的状态
-    if (FullscrTogg.checked) {
+    if (toggleSwitchElement.classList.contains("active")) {
         console.log("FullscrTogg 开关已开启");
 
         // 检查是否已存在 closeBtn，避免重复添加

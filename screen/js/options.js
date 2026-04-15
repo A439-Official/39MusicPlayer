@@ -20,34 +20,26 @@ function updateStatus() {
     const contentPlayer = document.getElementById("content-player");
     if (!FullscrTogg) return;
 
-    // 获取内部的 toggle-switch 元素
     const toggleSwitchElement = FullscrTogg.querySelector(".toggle-switch");
     if (!toggleSwitchElement) return;
 
-    // 输出 FullscrTogg 的状态
     if (toggleSwitchElement.classList.contains("active")) {
-        console.log("FullscrTogg 开关已开启");
+        let closeSvg = document.getElementById("btn-close");
+        if (!closeSvg) {
+            closeSvg = document.createElementNS("http://www.w3.org/2000/svg", "svg");
+            closeSvg.id = "btn-close";
+            closeSvg.classList.add("btn-close", "btn");
+            closeSvg.setAttribute("viewBox", "0 0 24 24");
 
-        // 检查是否已存在 closeBtn，避免重复添加
-        let closeBtn = document.getElementById("closeBtn");
-        if (!closeBtn) {
-            closeBtn = document.createElement("button");
-            closeBtn.classList.add("close-btn");
-            closeBtn.id = "closeBtn";
-            closeBtn.innerHTML = `
-                <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24">
-                    <path d="M19 12H6M12 5l-7 7 7 7"/>
-                </svg>
-            `;
-            contentPlayer.appendChild(closeBtn); // 添加到目标容器
+            const path = document.createElementNS("http://www.w3.org/2000/svg", "path");
+            path.setAttribute("d", "M19 12H6M12 5l-7 7 7 7");
+            closeSvg.appendChild(path);
+            contentPlayer.appendChild(closeSvg);
         }
     } else {
-        console.log("FullscrTogg 开关已关闭");
-
-        // 移除 closeBtn（如果存在）
-        const closeBtn = document.getElementById("closeBtn");
-        if (closeBtn) {
-            closeBtn.remove();
+        const closeSvg = document.getElementById("btn-close");
+        if (closeSvg) {
+            closeSvg.remove();
         }
     }
 }

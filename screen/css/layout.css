@@ -1,22 +1,26 @@
 .tab-list {
     display: flex;
     flex-direction: column;
-    width: 256px;
+    width: 20vw;
     background-color: var(--color-1);
     color: var(--text-1);
-    padding: 16px;
-    gap: 12px;
+    padding: 1em;
+    gap: 1em;
     position: absolute;
     top: 0;
-    bottom: 80px;
+    bottom: 6em;
     opacity: 1;
     visibility: visible;
+    transition: opacity 0.3s ease;
+}
+.tab-list.hidden {
+    opacity: 0;
 }
 
 .tab-title {
     background-color: var(--color-3);
     width: 100%;
-    padding: 12px 16px;
+    padding: 1em;
     border-radius: var(--border-radius);
     text-align: center;
     cursor: pointer;
@@ -37,7 +41,7 @@
     flex: 1;
     background-color: transparent;
     color: var(--text-1);
-    padding: 20px;
+    padding: 2em;
     overflow: auto;
     transition:
         opacity 0.3s ease,
@@ -45,8 +49,8 @@
     position: absolute;
     top: 0;
     right: 0;
-    bottom: 80px;
-    left: 256px;
+    bottom: 6em;
+    left: 20vw;
 }
 
 .tab-content.active {
@@ -55,10 +59,10 @@
 }
 
 .setting-item {
-    margin-bottom: 32px;
+    margin-bottom: 3em;
 }
 
 .setting-item p {
     color: var(--text-1);
-    margin: 12px;
+    margin: 0.5em;
 }

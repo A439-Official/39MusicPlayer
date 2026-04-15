@@ -1,54 +1,69 @@
 .footer-tabs {
     background-color: var(--color-1);
-    box-shadow: var(--text-1) 0px 4px 8px;
-    bottom: 0px;
+    box-shadow: var(--text-1) 0 1em 2em;
+    bottom: 0;
     color: var(--text-1);
     width: 100%;
-    height: 80px;
+    height: 6em;
     position: fixed;
     display: flex;
     justify-content: flex-start;
     align-items: center;
+    overflow: hidden;
 }
 
-.footer-tabs img {
-    width: 50px;
-    height: 50px;
-    margin: 20px;
-    border: 2px solid var(--text-1);
+.footer-tabs .footer-img {
+    position: fixed;
+    width: 100%;
+    height: 6em;
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
+    z-index: -999;
 }
 
-.content-box {
-    width: 450px;
-}
-
-.content {
-    color: var(--text-1);
-    display: grid;
-    grid-template-columns: auto auto auto;
-    justify-content: start;
-    align-items: end;
+.footer-tabs .footer-img::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background-color: color-mix(in srgb, var(--color-1), transparent 50%);
+    backdrop-filter: blur(2.5em);
 }
 
 .title-box {
-    width: 100%;
+    width: 40%;
     overflow: hidden;
     display: flex;
     white-space: nowrap;
     justify-content: flex-start;
-}
-
-.artist-box {
-    width: 200px;
-    overflow: hidden;
-    display: flex;
-    justify-content: flex-start;
+    font-size: 1.5em;
+    position: fixed;
+    left: 1em;
+    bottom: 2.25em;
 }
 
 .title-box p {
-    font-size: 20px;
-    font-weight: 300;
     display: inline-block;
+}
+
+.artist-box {
+    width: 40%;
+    overflow: hidden;
+    display: flex;
+    justify-content: flex-start;
+    font-size: 1em;
+    position: fixed;
+    left: 1.5em;
+    bottom: 2em;
+}
+
+.artist-box span {
+    white-space: nowrap;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 
 @keyframes scroll {
@@ -65,18 +80,14 @@
     padding-left: 1em;
 }
 
-.artist-box span {
-    font-size: 15px;
-    margin-left: 15px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
-}
-
 .seek-bar {
     display: grid;
     align-items: stretch;
     grid-template-columns: auto auto;
+    position: fixed;
+    width: 90%;
+    bottom: 0.75em;
+    left: 5%;
 }
 
 .seek-bar input {
@@ -85,56 +96,27 @@
 }
 
 .buttons {
-    margin: 16px;
-    display: flex;
-    align-items: center;
-    flex-direction: row;
+    position: fixed;
+    left: 50%;
+    transform: translateX(-50%);
+    z-index: 1;
 }
 
-.buttons a {
-    border-radius: 50px;
-    margin-right: 16px;
-    font-size: 30px;
-    font-weight: 600;
+.buttons svg {
+    width: auto;
+    height: 2.5em;
 }
 
-.buttons svg,
-.tab-content svg {
-    width: 30px;
-    height: 30px;
-    margin-top: 8px;
-    margin-right: 13px;
-    fill: none;
-    stroke: var(--text-1);
-    stroke-width: 2;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+.time-box {
+    position: fixed;
+    right: 1em;
+    bottom: 2em;
+    font-size: 1.2em;
 }
 
-.buttons svg:hover,
-.tab-content svg:hover {
-    cursor: pointer;
-    filter: drop-shadow(0 0 5px var(--text-1));
-}
-
-.buttons button,
-.tab-content .close-btn {
-    width: 35px;
-    height: 48px;
-    background-color: transparent;
-    border: none;
-    color: inherit;
-}
-
-.tab-content .close-btn {
-    position: absolute;
-    top: 0;
-    left: 0;
-    padding-left: 10px;
-}
-
-.tab-content.act {
-    left: 0px;
+.event-overlay {
+    width: 100%;
+    height: 100%;
 }
 
 .volume-progress-bar {
@@ -145,14 +127,18 @@
 }
 
 .volume {
+    font-size: 1.2em;
+    position: fixed;
+    right: 8em;
+    bottom: 1.5em;
     display: flex;
     align-items: center;
     flex-direction: column-reverse;
 }
 
 .volume svg {
-    margin-top: 3px;
-    margin-right: 0px;
+    width: auto;
+    height: 2em;
 }
 
 .volume:hover {
@@ -169,17 +155,40 @@
 #volumeSlider {
     transform: rotate(270deg);
     transform-origin: center;
-    width: 100px;
-    height: 20px;
+    width: 10em;
+    height: 0.5em;
+}
+
+.btn-close {
+    width: auto;
+    height: 2.5em;
+    background-color: transparent;
+    border: none;
+    color: inherit;
+    position: absolute;
+    top: 0;
+    left: 0;
+    margin: 1em;
+    transition: transform 0.3s ease;
+}
+.btn-close.rotated {
+    transform: rotate(180deg);
+}
+
+.tab-content.act {
+    left: 0;
 }
 
 #content-player {
-    padding: 0px;
+    padding: 0;
     display: flex;
     justify-content: space-evenly;
     align-items: center;
     flex-direction: row;
-    transition: left 0.3s ease-out,opacity 0.3s ease,visibility 0.3s;
+    transition:
+        left 0.3s ease-out,
+        opacity 0.3s ease,
+        visibility 0.3s;
 }
 
 .player-img {
@@ -195,8 +204,8 @@
     height: 70%;
     display: flex;
     flex-direction: column;
-    margin: 0px 30px;
-    padding: 0px 25px;
+    margin: 0 30px;
+    padding: 0 25px;
     align-items: flex-start;
 }
 
@@ -219,7 +228,7 @@
     width: 300px;
     white-space: nowrap;
     display: flex;
-    margin: 10px 0px;
+    margin: 10px 0;
 }
 
 .titleartist-box p {
@@ -247,8 +256,8 @@
     height: 100%;
     border-radius: inherit;
     box-shadow:
-        inset 0px 67px 20px -22px var(--color-2-1),
-        inset 0px -67px 20px -15px var(--color-2-1);
+        inset 0 67px 20px -22px var(--color-2-1),
+        inset 0 -67px 20px -15px var(--color-2-1);
 }
 
 .lyrics-lines {

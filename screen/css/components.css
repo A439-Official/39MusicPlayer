@@ -1,11 +1,11 @@
 .custom-select {
     position: relative;
     width: 100%;
-    max-width: 300px;
+    max-width: 32em;
 }
 
 .custom-select-display {
-    padding: 10px 12px;
+    padding: 0.75em;
     border-radius: var(--border-radius);
     cursor: pointer;
     display: flex;
@@ -56,13 +56,12 @@
 }
 
 .custom-select-open .custom-select-options {
-    max-height: 500px;
+    max-height: 64em;
     transform: scaleY(1);
 }
 
 .custom-select-option {
-    padding: 10px 12px;
-    font-size: 14px;
+    padding: 0.75em;
     color: var(--text-1);
     cursor: pointer;
 }
@@ -98,17 +97,16 @@
 .toggle-container {
     display: flex;
     align-items: center;
-    gap: 10px;
     font-family: Arial, sans-serif;
 }
 
 .toggle-switch {
     position: relative;
     display: inline-block;
-    width: 60px;
-    height: 34px;
+    width: 4.5em;
+    height: 2.5em;
     background-color: var(--color-3);
-    border-radius: 34px;
+    border-radius: 2em;
     cursor: pointer;
     transition: background-color 0.4s;
 }
@@ -116,10 +114,10 @@
 .toggle-switch::before {
     position: absolute;
     content: "";
-    height: 26px;
-    width: 26px;
-    left: 4px;
-    bottom: 4px;
+    height: 2em;
+    width: 2em;
+    left: 0.25em;
+    bottom: 0.25em;
     background-color: var(--text-1);
     border-radius: 50%;
     transition: transform 0.4s;
@@ -130,7 +128,7 @@
 }
 
 .toggle-switch.active::before {
-    transform: translateX(26px);
+    transform: translateX(2em);
 }
 
 .status-text {

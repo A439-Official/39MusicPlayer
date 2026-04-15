@@ -66,7 +66,11 @@ async function playSong(songId) {
         }
         const coverEl = document.getElementsByClassName("data-cover");
         for (const el of coverEl) {
-            el.src = songInfo?.pic || "";
+            if (el.tagName === "IMG") {
+                el.src = songInfo?.pic || "";
+            } else {
+                el.style.backgroundImage = songInfo?.pic ? `url("${songInfo.pic}")` : "";
+            }
         }
     }
 

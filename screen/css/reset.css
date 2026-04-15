@@ -37,4 +37,5 @@ body {
 body {
     display: flex;
     background-color: var(--color-2);
+    font-size: 2vh;
 }

@@ -367,6 +367,96 @@ function updatePlaylistUI() {
     }
 }
 
+// 保存播放状态
+async function savePlaybackState() {
+    try {
+        const playbackState = {
+            songId: currentSongId,
+            currentTime: currentAudio ? currentAudio.currentTime : 0,
+            playlistIndex: currentPlaylistIndex,
+            paused: currentAudio ? currentAudio.paused : true,
+            timestamp: Date.now()
+        };
+        
+        await safeAsync(() => window.electronAPI.setConfig("playbackState", playbackState), "保存播放状态失败");
+        console.log("播放状态已保存:", playbackState);
+    } catch (error) {
+        console.error("保存播放状态时出错:", error);
+    }
+}
+
+// 加载播放状态
+async function loadPlaybackState() {
+    try {
+        const playbackState = await safeAsync(() => window.electronAPI.getConfig("playbackState", null), "加载播放状态失败");
+        
+        if (!playbackState || !playbackState.songId) {
+            console.log("无保存的播放状态");
+            return false;
+        }
+        
+        // 检查播放状态是否过期（超过24小时）
+        const now = Date.now();
+        const oneDay = 24 * 60 * 60 * 1000;
+        if (now - playbackState.timestamp > oneDay) {
+            console.log("播放状态已过期");
+            return false;
+        }
+        
+        console.log("加载播放状态:", playbackState);
+        
+        // 恢复播放列表索引
+        if (playbackState.playlistIndex !== undefined && playbackState.playlistIndex >= 0) {
+            currentPlaylistIndex = playbackState.playlistIndex;
+            if (currentPlaylistIndex < playlists.length) {
+                currentPlaylistSongs = playlists[currentPlaylistIndex].songs;
+                await setCurrentPlaylistIndex(currentPlaylistIndex);
+            }
+        }
+        
+        // 恢复播放歌曲
+        if (playbackState.songId && currentPlaylistSongs.includes(playbackState.songId)) {
+            const songIndex = currentPlaylistSongs.indexOf(playbackState.songId);
+            if (songIndex !== -1) {
+                currentPlaylistIndex = songIndex;
+                await playSong(playbackState.songId);
+                
+                // 恢复播放位置
+                if (playbackState.currentTime > 0 && currentAudio) {
+                    // 等待音频加载完成
+                    setTimeout(() => {
+                        if (currentAudio && currentAudio.duration > 0) {
+                            const seekTime = Math.min(playbackState.currentTime, currentAudio.duration - 1);
+                            currentAudio.currentTime = seekTime;
+                            console.log("恢复播放位置:", seekTime);
+                            
+                            // 总是暂停播放，等待用户手动播放
+                            if (!currentAudio.paused) {
+                                currentAudio.pause();
+                                console.log("默认暂停播放");
+                            }
+                            
+                            // 更新暂停按钮状态
+                            const pauseBtn = document.getElementById("pause-btn");
+                            if (pauseBtn) {
+                                pauseBtn.innerHTML = `
+                                    <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                                `;
+                            }
+                        }
+                    }, 500);
+                }
+                return true;
+            }
+        }
+        
+        return false;
+    } catch (error) {
+        console.error("加载播放状态时出错:", error);
+        return false;
+    }
+}
+
 // 页面加载时初始化播放列表
 document.addEventListener("DOMContentLoaded", async () => {
     await ensurePlayHistoryPlaylist();
@@ -380,4 +470,18 @@ document.addEventListener("DOMContentLoaded", async () => {
     if (typeof currentAudio !== "undefined") {
         currentAudio.addEventListener("ended", playNext);
     }
+    
+    // 加载上次播放状态
+    await loadPlaybackState();
 });
+
+// 在窗口关闭前保存播放状态
+if (typeof window !== "undefined") {
+    window.addEventListener("beforeunload", () => {
+        savePlaybackState();
+    });
+    
+    window.addEventListener("pagehide", () => {
+        savePlaybackState();
+    });
+}

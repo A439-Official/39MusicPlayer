@@ -94,3 +94,45 @@
     border-bottom-left-radius: var(--border-radius);
     border-bottom-right-radius: var(--border-radius);
 }
+
+.toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    font-family: Arial, sans-serif;
+}
+
+.toggle-switch {
+    position: relative;
+    display: inline-block;
+    width: 60px;
+    height: 34px;
+    background-color: var(--color-3);
+    border-radius: 34px;
+    cursor: pointer;
+    transition: background-color 0.4s;
+}
+
+.toggle-switch::before {
+    position: absolute;
+    content: "";
+    height: 26px;
+    width: 26px;
+    left: 4px;
+    bottom: 4px;
+    background-color: var(--text-1);
+    border-radius: 50%;
+    transition: transform 0.4s;
+}
+
+.toggle-switch.active {
+    background-color: var(--color-4);
+}
+
+.toggle-switch.active::before {
+    transform: translateX(26px);
+}
+
+.status-text {
+    font-weight: bold;
+}

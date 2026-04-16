@@ -36,6 +36,13 @@ function updateStatus() {
             closeSvg.appendChild(path);
             contentPlayer.appendChild(closeSvg);
         }
+        const tabList = document.querySelector(".tab-list");
+
+        closeSvg.addEventListener("click", () => {
+            contentPlayer.classList.toggle("act");
+            tabList.classList.toggle("hidden");
+            closeSvg.classList.toggle("rotated");
+        });
     } else {
         const closeSvg = document.getElementById("btn-close");
         if (closeSvg) {

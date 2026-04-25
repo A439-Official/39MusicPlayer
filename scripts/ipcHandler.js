@@ -1,7 +1,7 @@
 const { ipcMain } = require("electron");
 const CacheManager = require("./cacheManager");
 
-function registerIPC(app, configManager) {
+function registerIPC(app, configManager, lyricsWindow) {
     const cacheManager = new CacheManager(configManager);
 
     ipcMain.handle("quit", (event) => {
@@ -31,6 +31,18 @@ function registerIPC(app, configManager) {
     // 清空缓存
     ipcMain.handle("clear-cache", async (event) => {
         return await cacheManager.clearCache();
+    });
+
+    ipcMain.on("send-lyrics", (event, data) => {
+        if (lyricsWindow) {
+            lyricsWindow.webContents.send("lyrics", data);
+        }
+    });
+
+    ipcMain.on("send-time", (event, songTime, sendTime) => {
+        if (lyricsWindow) {
+            lyricsWindow.webContents.send("time", songTime, sendTime);
+        }
     });
 }
 

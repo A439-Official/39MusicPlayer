@@ -85,15 +85,55 @@ const parseSong = (song, privilege) => ({
 });
 
 // 解析歌词
-const parseLyrics = (lyricData) =>
-    lyricData?.lyric
-        ?.split("\n")
+const parseLyrics = (lyricData) => {
+    const lyric = lyricData?.lyric;
+    if (!lyric) return [];
+    return lyric
+        .split("\n")
         .filter((line) => line.trim())
         .map((line) => {
-            const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
-            return match ? { time: parseInt(match[1]) * 60 + parseFloat(match[2]), text: match[3].trim() } : null;
+            line = line.trim();
+            // lrc
+            const lrcMatch = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
+            if (lrcMatch) {
+                return {
+                    time: parseInt(lrcMatch[1]) * 60 + parseFloat(lrcMatch[2]),
+                    text: lrcMatch[3].trim(),
+                };
+            }
+            // yrc
+            const yrcLineMatch = line.match(/^\[(\d+),(\d+)\]/);
+            if (yrcLineMatch) {
+                const lineStart = parseInt(yrcLineMatch[1]);
+                const lineDuration = parseInt(yrcLineMatch[2]);
+                const rest = line.slice(yrcLineMatch[0].length);
+                const wordRegex = /\((\d+),(\d+),\d+\)([^\(\)]+)/g;
+                const words = [];
+                let fullText = "";
+                let match;
+                while ((match = wordRegex.exec(rest)) !== null) {
+                    const start = parseInt(match[1]);
+                    const duration = parseInt(match[2]);
+                    const text = match[3];
+                    words.push({ text, start, duration });
+                    fullText += text;
+                }
+                if (words.length === 0) {
+                    return null;
+                }
+                return {
+                    time: lineStart / 1000,
+                    text: fullText,
+                    words: words.map((w) => ({ text: w.text, start: w.start / 1000, duration: w.duration / 1000 })),
+                };
+            }
+            if (line.startsWith("{")) {
+                return null;
+            }
+            return null;
         })
-        .filter(Boolean) || [];
+        .filter(Boolean);
+};
 
 function bufferToJson(buffer) {
     if (!buffer) return null;
@@ -303,12 +343,13 @@ window.musicApi.getLyric = async (id) => {
     }
     const promise = (async () => {
         try {
-            const data = await fetchJson(`${rootUrl}/lyric?id=${id}`);
+            const data = await fetchJson(`${rootUrl}/lyric/new?id=${id}`);
             if (!data) return null;
             const lyricData = {
                 id,
                 lyrics: parseLyrics(data.lrc),
                 tlyrics: parseLyrics(data.tlyric),
+                wlyrics: parseLyrics(data.yrc),
             };
             const buffer = jsonToBuffer(lyricData);
             if (buffer) {

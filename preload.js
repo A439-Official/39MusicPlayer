@@ -12,4 +12,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getCache: (cachePath) => ipcRenderer.invoke("get-cache", cachePath),
     saveCache: (cachePath, data) => ipcRenderer.invoke("save-cache", cachePath, data),
     clearCache: () => ipcRenderer.invoke("clear-cache"),
+
+    sendLyrics: (data) => ipcRenderer.send("send-lyrics", data),
+    sendTime: (songTime, sendTime) => {
+        ipcRenderer.send("send-time", songTime, sendTime);
+    },
 });

@@ -171,6 +171,10 @@ function updateSeekBar() {
     }
 
     updateLyricHighlight(currentTime);
+
+    if (window.electronAPI && window.electronAPI.sendTime) {
+        window.electronAPI.sendTime(currentTime, currentAudio.paused ? undefined : Date.now());
+    }
 }
 
 function handleSeek() {
@@ -215,12 +219,18 @@ function togglePause(buttonElement) {
                 <rect x="6" y="4" width="4" height="16"></rect>
                 <rect x="14" y="4" width="4" height="16"></rect>
             `;
+            if (window.electronAPI && window.electronAPI.sendTime) {
+                window.electronAPI.sendTime(currentAudio.currentTime, Date.now());
+            }
         } else {
             currentAudio.pause();
             console.log("Audio paused");
             buttonElement.innerHTML = `
                 <polygon points="5 3 19 12 5 21 5 3"></polygon>
             `;
+            if (window.electronAPI && window.electronAPI.sendTime) {
+                window.electronAPI.sendTime(currentAudio.currentTime);
+            }
         }
     } catch (error) {
         console.error("Error toggling pause:", error);
@@ -258,6 +268,10 @@ async function loadLyrics(songId) {
 
         // 渲染歌词
         renderLyrics(lyricData.lyrics);
+
+        if (window.electronAPI && window.electronAPI.sendLyrics) {
+            window.electronAPI.sendLyrics(lyricData);
+        }
     } catch (error) {
         console.error("加载歌词失败:", error);
     }

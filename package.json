@@ -21,7 +21,8 @@
     "devDependencies": {
         "electron": "^40.7.0",
         "electron-builder": "^26.8.1",
-        "electron-updater": "^6.8.3"
+        "electron-updater": "^6.8.3",
+        "pixi.js": "^8.18.1"
     },
     "build": {
         "appId": "com.a439.39musicplayer",

@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, MenuItem, session } = require("electron");
+const { app, BrowserWindow, Menu, MenuItem, session, screen } = require("electron");
 const path = require("node:path");
 const ConfigManager = require("./scripts/configManager");
 const { registerProtocolHandler } = require("./scripts/protocolHandler");
@@ -8,6 +8,7 @@ const { createTray } = require("./scripts/trayManager");
 const APP_NAME = "39MusicPlayer";
 
 let mainWindow = null;
+let lyricsWindow = null;
 let configManager = null;
 const appLock = app.requestSingleInstanceLock();
 
@@ -60,9 +61,47 @@ function createWindow() {
 
     mainWindow.on("closed", () => {
         mainWindow = null;
+        if (lyricsWindow) {
+            lyricsWindow.close();
+            lyricsWindow = null;
+        }
     });
 
     return mainWindow;
+}
+
+function createLyricsWindow() {
+    if (lyricsWindow) {
+        lyricsWindow.focus();
+        return lyricsWindow;
+    }
+    const primaryDisplay = screen.getPrimaryDisplay();
+    lyricsWindow = new BrowserWindow({
+        width: primaryDisplay.workAreaSize.width,
+        height: primaryDisplay.workAreaSize.height,
+        webPreferences: {
+            contextIsolation: false,
+            nodeIntegration: true,
+            backgroundThrottling: false,
+        },
+        autoHideMenuBar: true,
+        alwaysOnTop: true,
+        frame: false,
+        transparent: true,
+        resizable: false,
+        skipTaskbar: true,
+    });
+
+    lyricsWindow.setIgnoreMouseEvents(true);
+
+    // 加载歌词页面
+    lyricsWindow.loadFile(path.join(__dirname, "screen/fancyLyrics.html")).catch((err) => {
+        console.error("Failed to load fancyLyrics.html:", err);
+    });
+
+    // lyricsWindow.webContents.openDevTools();
+
+    return lyricsWindow;
 }
 
 function initShortcuts() {
@@ -94,8 +133,17 @@ function initShortcuts() {
         });
         menuItems.push({
             label: "Reload window",
-            click: () => mainWindow.reload(),
+            click: () => {
+                mainWindow.reload();
+            },
             accelerator: "CommandOrControl+R",
+        });
+        menuItems.push({
+            label: "Reload lyric",
+            click: () => {
+                lyricsWindow.reload();
+            },
+            accelerator: "CommandOrControl+Shift+R",
         });
     }
 
@@ -113,9 +161,10 @@ function initializeApp() {
     configManager = new ConfigManager(APP_NAME);
 
     registerProtocolHandler(app);
-    registerIPC(app, configManager);
 
     createWindow();
+    createLyricsWindow();
+    registerIPC(app, configManager, lyricsWindow);
     tray = createTray(app, focus);
 }
 

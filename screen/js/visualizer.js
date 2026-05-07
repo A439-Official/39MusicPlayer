@@ -1,4 +1,3 @@
-// 等待DOM加载完成
 document.addEventListener("DOMContentLoaded", function () {
     // 确保currentAudio存在
     if (typeof currentAudio === "undefined") {
@@ -6,29 +5,53 @@ document.addEventListener("DOMContentLoaded", function () {
         return;
     }
 
-    // 获取Canvas元素和上下文
     const canvas = document.getElementById("visualizer");
     const ctx = canvas.getContext("2d");
-
-    // 设置Canvas尺寸
-    function resizeCanvas() {
-        canvas.width = canvas.offsetWidth;
-        canvas.height = canvas.offsetHeight;
-    }
-    window.addEventListener("resize", resizeCanvas);
-    resizeCanvas();
 
     let audioCtx;
     let analyser;
     let dataArray;
     let source;
     let gainNode;
+    let animationFrameId = null;
     const fftSize = 2 ** 11;
     const waveHeight = 0.5;
     let frameHistory = [];
-    const maxHistoryTime = 43.9; // 1秒限制（毫秒）
+    const maxHistoryTime = 43.9;
+
+    function cleanupVisualizer() {
+        if (animationFrameId !== null) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+
+        try {
+            source.disconnect();
+        } catch (e) {}
+        source = null;
+        try {
+            analyser.disconnect();
+        } catch (e) {}
+        analyser = null;
+        try {
+            gainNode.disconnect();
+        } catch (e) {}
+        gainNode = null;
+
+        if (audioCtx && audioCtx.state !== "closed") {
+            audioCtx.close().catch((e) => {
+                console.warn("Failed to close AudioContext:", e);
+            });
+            audioCtx = null;
+        }
+
+        dataArray = null;
+        frameHistory = [];
+    }
 
     function initAudioContext() {
+        cleanupVisualizer();
+
         audioCtx = new (window.AudioContext || window.webkitAudioContext)();
         analyser = audioCtx.createAnalyser();
         analyser.fftSize = fftSize;
@@ -76,6 +99,9 @@ document.addEventListener("DOMContentLoaded", function () {
             }
         }
 
+        canvas.width = canvas.offsetWidth;
+        canvas.height = canvas.offsetHeight;
+
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         const frame = avgFrame;
         const minDecibels = analyser.minDecibels;
@@ -111,30 +137,42 @@ document.addEventListener("DOMContentLoaded", function () {
         ctx.stroke();
     }
 
-    // 动画循环
     function draw() {
         if (!analyser) return;
-
-        requestAnimationFrame(draw);
+        animationFrameId = requestAnimationFrame(draw);
         drawSpectrogram();
     }
 
     function startVisualizer() {
         if (!audioCtx) {
             initAudioContext();
+        } else if (audioCtx.state === "suspended") {
+            audioCtx.resume();
         }
         draw();
     }
 
+    function stopVisualizer() {
+        if (animationFrameId !== null) {
+            cancelAnimationFrame(animationFrameId);
+            animationFrameId = null;
+        }
+    }
+
+    function handleEnded() {
+        stopVisualizer();
+    }
+
+    currentAudio.addEventListener("ended", handleEnded);
     currentAudio.addEventListener("play", startVisualizer);
+    currentAudio.addEventListener("pause", stopVisualizer);
 
     if (!currentAudio.paused) {
         startVisualizer();
     }
 
-    currentAudio.addEventListener("pause", function () {});
-
-    currentAudio.addEventListener("ended", function () {});
+    window.addEventListener("beforeunload", cleanupVisualizer);
+    window.addEventListener("pagehide", cleanupVisualizer);
 
     window.resetSpectrogram = function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);

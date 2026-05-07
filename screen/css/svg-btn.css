@@ -1,7 +1,7 @@
 svg.btn {
     fill: none;
     stroke: var(--text-1);
-    stroke-width: 2;
+    stroke-width: var(--button-width);
     stroke-linecap: round;
     stroke-linejoin: round;
     color: var(--text-1);

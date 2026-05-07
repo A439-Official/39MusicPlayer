@@ -7,10 +7,12 @@ let currentTimeEl = null;
 let totalTimeEl = null;
 let loadedMetadataHandler = null;
 let errorHandler = null;
+let endedHandler = null;
 let currentLyrics = [];
 let currentLyricIndex = -1;
 let lyricsContainer = null;
 let lyricsLines = null;
+let currentAudioDuration = 0;
 
 function cleanupCurrentBlobUrl() {
     if (currentBlobUrl && currentBlobUrl.startsWith("blob:")) {
@@ -22,7 +24,7 @@ function cleanupCurrentBlobUrl() {
     }
 }
 
-async function playSong(songId) {
+async function playSong(songId, play = true) {
     cleanupCurrentBlobUrl();
     currentSongId = songId;
 
@@ -36,6 +38,10 @@ async function playSong(songId) {
         errorHandler = null;
     }
     currentAudio.removeEventListener("timeupdate", updateSeekBar);
+    if (endedHandler) {
+        currentAudio.removeEventListener("ended", endedHandler);
+        endedHandler = null;
+    }
 
     currentAudio.pause();
     currentAudio.src = "";
@@ -96,9 +102,9 @@ async function playSong(songId) {
             if (totalTimeEl) {
                 totalTimeEl.textContent = formatTime(fixedDuration);
             }
+            currentAudioDuration = fixedDuration;
             if (seekBar) {
-                seekBar.max = fixedDuration;
-                seekBar.value = 0;
+                seekBar.setValue(0, true);
             }
             if (currentTimeEl) {
                 currentTimeEl.textContent = formatTime(0);
@@ -119,31 +125,83 @@ async function playSong(songId) {
     });
 
     loadLyrics(songId);
+
+    if (play) {
+        try {
+            await currentAudio.play();
+            const pauseBtn = document.getElementById("pause-btn");
+            if (pauseBtn) {
+                pauseBtn.innerHTML = `
+                    <rect x="14" y="3" width="5" height="18" rx="1"/>
+                    <rect x="5" y="3" width="5" height="18" rx="1"/>
+                `;
+                pauseBtn.onclick = function () {
+                    togglePause(this);
+                };
+            }
+        } catch (error) {
+            console.error("Failed to play audio:", error);
+        }
+    }
+
     try {
-        await currentAudio.play();
-        const pauseBtn = document.getElementById("pause-btn");
-        if (pauseBtn) {
-            pauseBtn.innerHTML = `
-                <rect x="6" y="4" width="4" height="16"></rect>
-                <rect x="14" y="4" width="4" height="16"></rect>
-            `;
-            // 添加新的点击事件（使用togglePause函数）
-            pauseBtn.onclick = function () {
-                togglePause(this);
-            };
+        if (window.electronAPI && window.electronAPI.setConfig) {
+            await window.electronAPI.setConfig("lastPlayedSongId", songId);
         }
     } catch (error) {
-        console.error("Failed to play audio:", error);
+        console.error("Failed to save last played song ID:", error);
     }
 
     currentAudio.addEventListener("timeupdate", updateSeekBar);
+    endedHandler = function () {
+        if (window.playNext && typeof window.playNext === "function") {
+            try {
+                window.playNext();
+            } catch (err) {
+                console.error("Error calling playNext in ended handler:", err);
+            }
+        }
+    };
+    currentAudio.addEventListener("ended", endedHandler);
+}
+
+async function loadLastPlayedSong() {
+    try {
+        if (window.electronAPI && window.electronAPI.getConfig) {
+            const lastSongId = await window.electronAPI.getConfig("lastPlayedSongId", null);
+            if (lastSongId) {
+                await playSong(lastSongId, false);
+            }
+        }
+    } catch (error) {
+        console.error("Failed to load last played song:", error);
+    }
 }
 
 function setupSeekBar() {
     if (!seekBar) {
-        seekBar = document.getElementById("seek-bar");
-        if (seekBar) {
-            seekBar.addEventListener("input", handleSeek);
+        const seekBarContainer = document.getElementById("seek-bar");
+        if (seekBarContainer) {
+            seekBar = new CustomProgressBar(seekBarContainer, 0, function (value) {
+                if (currentAudio) {
+                    const duration = currentAudio.duration || currentAudioDuration;
+                    if (duration > 0) {
+                        const seekTime = value * duration;
+                        currentAudio.currentTime = seekTime;
+                        if (currentTimeEl) {
+                            currentTimeEl.textContent = formatTime(seekTime);
+                        }
+                        updateLyricHighlight(seekTime);
+                        if (value >= 0.999 && window.playNext && typeof window.playNext === "function") {
+                            try {
+                                window.playNext();
+                            } catch (err) {
+                                console.error("Error calling playNext:", err);
+                            }
+                        }
+                    }
+                }
+            });
         }
     }
     if (!currentTimeEl) {
@@ -159,11 +217,13 @@ function updateSeekBar() {
 
     const currentTime = currentAudio.currentTime;
     const duration = currentAudio.duration;
-    const displayTime = Math.min(Math.floor(currentTime), duration);
 
     if (isNaN(duration) || duration <= 0) return;
 
-    seekBar.value = displayTime;
+    const progress = currentTime / duration;
+    seekBar.setValue(progress, true);
+
+    const displayTime = Math.floor(currentTime);
     currentTimeEl.textContent = formatTime(displayTime);
 
     if (totalTimeEl.textContent === "00:00") {
@@ -175,19 +235,6 @@ function updateSeekBar() {
     if (window.electronAPI && window.electronAPI.sendTime) {
         window.electronAPI.sendTime(currentTime, currentAudio.paused ? undefined : Date.now());
     }
-}
-
-function handleSeek() {
-    if (!currentAudio || !seekBar) return;
-
-    const seekTime = parseFloat(seekBar.value);
-    if (isNaN(seekTime)) return;
-
-    currentAudio.currentTime = seekTime;
-    if (currentTimeEl) {
-        currentTimeEl.textContent = formatTime(seekTime);
-    }
-    updateLyricHighlight(seekTime);
 }
 
 // MM:SS
@@ -213,11 +260,21 @@ function togglePause(buttonElement) {
     }
     try {
         if (currentAudio.paused) {
-            currentAudio.play();
+            const playPromise = currentAudio.play();
+            if (playPromise !== undefined) {
+                playPromise.catch((error) => {
+                    console.error("Error playing audio:", error);
+                    if (error.name === "NotSupportedError" || error.message.includes("no supported sources")) {
+                        console.warn("Audio source may be invalid, clearing src");
+                        currentAudio.src = "";
+                        currentAudio.load();
+                    }
+                });
+            }
             console.log("Audio resumed");
             buttonElement.innerHTML = `
-                <rect x="6" y="4" width="4" height="16"></rect>
-                <rect x="14" y="4" width="4" height="16"></rect>
+                <rect x="14" y="3" width="5" height="18" rx="1"/>
+                <rect x="5" y="3" width="5" height="18" rx="1"/>
             `;
             if (window.electronAPI && window.electronAPI.sendTime) {
                 window.electronAPI.sendTime(currentAudio.currentTime, Date.now());
@@ -226,7 +283,7 @@ function togglePause(buttonElement) {
             currentAudio.pause();
             console.log("Audio paused");
             buttonElement.innerHTML = `
-                <polygon points="5 3 19 12 5 21 5 3"></polygon>
+                <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
             `;
             if (window.electronAPI && window.electronAPI.sendTime) {
                 window.electronAPI.sendTime(currentAudio.currentTime);
@@ -334,3 +391,5 @@ function updateLyricHighlight(currentTime) {
         }
     }
 }
+
+document.addEventListener("DOMContentLoaded", loadLastPlayedSong);

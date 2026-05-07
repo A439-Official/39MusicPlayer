@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require("electron");
+const CryptoJS = require("crypto-js");
 
 contextBridge.exposeInMainWorld("electronAPI", {
     getConfig: (key, defaultValue) => ipcRenderer.invoke("get-config", key, defaultValue),
@@ -17,4 +18,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     sendTime: (songTime, sendTime) => {
         ipcRenderer.send("send-time", songTime, sendTime);
     },
+});
+
+contextBridge.exposeInMainWorld("hash", {
+    md5: (str) => CryptoJS.enc.Hex.stringify(CryptoJS.MD5(str)),
 });

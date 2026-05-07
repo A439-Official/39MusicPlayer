@@ -1,4 +1,3 @@
-// 移除所有活动的标签页和内容
 function removeAllActiveTabs() {
     document.querySelectorAll(".tab-title.active, .tab-content.active").forEach((el) => el.classList.remove("active"));
 }

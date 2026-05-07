@@ -25,7 +25,7 @@
     display: flex;
     align-items: center;
     padding: 16px 0;
-    border-bottom: 1px solid var(--color-5);
+    border-bottom: 1px solid var(--color-4);
     transition: background-color 0.2s ease;
 }
 
@@ -86,7 +86,7 @@
 
 /* 播放按钮 */
 .song-list-item .play-button {
-    background-color: var(--color-4);
+    background-color: var(--color-5);
     color: var(--text-1);
     border: none;
 }
@@ -100,7 +100,7 @@
 .song-list-item .delete-button {
     background-color: transparent;
     color: var(--text-2);
-    border: 1px solid var(--color-5);
+    border: 1px solid var(--color-4);
 }
 
 .song-list-item .delete-button:hover {

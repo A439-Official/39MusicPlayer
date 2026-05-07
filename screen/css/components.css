@@ -81,12 +81,12 @@
 }
 
 .custom-select-option-selected {
-    background-color: var(--color-4);
+    background-color: var(--color-5);
     color: var(--text-2);
 }
 
 .custom-select-option-selected:hover {
-    background-color: var(--color-4);
+    background-color: var(--color-5);
 }
 
 .custom-select-option-selected:last-child {
@@ -124,7 +124,7 @@
 }
 
 .toggle-switch.active {
-    background-color: var(--color-4);
+    background-color: var(--color-5);
 }
 
 .toggle-switch.active::before {

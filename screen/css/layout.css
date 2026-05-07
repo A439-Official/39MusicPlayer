@@ -9,9 +9,6 @@
     position: absolute;
     top: 0;
     bottom: 6em;
-    opacity: 1;
-    visibility: visible;
-    transition: opacity 0.3s ease;
 }
 .tab-list.hidden {
     opacity: 0;
@@ -27,11 +24,11 @@
 }
 
 .tab-title:hover {
-    background-color: var(--color-5);
+    background-color: var(--color-4);
 }
 
 .tab-title.active {
-    background-color: var(--color-4);
+    background-color: var(--color-5);
     color: var(--text-2);
 }
 

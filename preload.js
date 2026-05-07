@@ -1,4 +1,5 @@
 const { contextBridge, ipcRenderer } = require("electron");
+const CryptoJS = require("crypto-js");
 
 contextBridge.exposeInMainWorld("electronAPI", {
     getConfig: (key, defaultValue) => ipcRenderer.invoke("get-config", key, defaultValue),
@@ -12,4 +13,8 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getCache: (cachePath) => ipcRenderer.invoke("get-cache", cachePath),
     saveCache: (cachePath, data) => ipcRenderer.invoke("save-cache", cachePath, data),
     clearCache: () => ipcRenderer.invoke("clear-cache"),
+});
+
+contextBridge.exposeInMainWorld("hash", {
+    md5: (str) => CryptoJS.enc.Hex.stringify(CryptoJS.MD5(str)),
 });

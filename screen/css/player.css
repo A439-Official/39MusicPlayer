@@ -81,18 +81,21 @@
 }
 
 .seek-bar {
+    overflow: hidden;
     display: grid;
-    align-items: stretch;
-    grid-template-columns: auto auto;
     position: fixed;
     width: 90%;
+    height: 0.5em;
     bottom: 0.75em;
     left: 5%;
+    border-radius: 0.25em;
+    background-color: var(--color-1);
 }
 
-.seek-bar input {
-    margin-right: 15px;
-    width: 334px;
+.seek-bar div {
+    height: 100%;
+    border-radius: 0.25em;
+    background-color: var(--text-1);
 }
 
 .buttons {
@@ -159,22 +162,6 @@
     height: 0.5em;
 }
 
-.btn-close {
-    width: auto;
-    height: 2.5em;
-    background-color: transparent;
-    border: none;
-    color: inherit;
-    position: absolute;
-    top: 0;
-    left: 0;
-    margin: 1em;
-    transition: transform 0.3s ease;
-}
-.btn-close.rotated {
-    transform: rotate(180deg);
-}
-
 .tab-content.act {
     left: 0;
 }
@@ -185,10 +172,6 @@
     justify-content: space-evenly;
     align-items: center;
     flex-direction: row;
-    transition:
-        left 0.3s ease-out,
-        opacity 0.3s ease,
-        visibility 0.3s;
 }
 
 .player-img {

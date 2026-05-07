@@ -1,7 +1,7 @@
 window.musicApi = window.musicApi || {};
 
 const rootUrl = "https://ncm.zhenxin.me";
-const backupApi = "https://103.36.90.170/api/netease/music_v1.php";
+const backupApi = "https://nextmusic.toubiec.cn";
 
 const pendingPromises = {
     songs: {},
@@ -44,31 +44,36 @@ function enqueueRequest(requestFn) {
     });
 }
 
-const fetchJson = async (url, retries = 5) => {
+const fetchJson = async (url, data, retries = 1) => {
     return enqueueRequest(async () => {
         let lastError;
         for (let i = 0; i < retries; i++) {
             try {
-                const response = await fetch(url);
+                const options = {
+                    method: data ? "POST" : "GET",
+                    headers: {},
+                };
+                if (data) {
+                    options.headers["Content-Type"] = "application/json";
+                    options.body = JSON.stringify(data);
+                }
+                const response = await fetch(url, options);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
-                const data = await response.json();
-                if (data.code !== 200) {
-                    throw new Error(`API error: ${data.code}`);
+                const result = await response.json();
+                if (result.code !== 200) {
+                    throw new Error(`API error: ${result.code}`);
                 }
-                return data;
+                return result;
             } catch (error) {
                 lastError = error;
-                // console.warn(`Attempt ${i + 1} failed. Retrying...`);
                 if (i === retries - 1) {
-                    // console.error("All retries failed. Last error:", error);
                     return null;
                 }
                 await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
             }
         }
-        console.error("Unexpected error in retry logic", lastError);
         return null;
     });
 };
@@ -244,8 +249,21 @@ window.musicApi.getSongUrl = async (id) => {
     if (!audioUrl) {
         const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
         const urlData = mainData?.data?.[0];
-        if (info.fee > 0) {
-            const backupData = await fetchJson(`${backupApi}?id=${id}&type=json&level=lossless`);
+        if (info.fee > 0 || !urlData) {
+            // const backupData = await fetchJson(`${backupApi}?id=${id}&type=json&level=lossless`);
+            // if (backupData?.data?.url) {
+            //     audioUrl = backupData.data.url;
+            // }
+
+            const ip = await fetchJson(`${backupApi}/api/getip`);
+            const token = window.hash.md5(`suxiaoqings:${ip.data.ip}`);
+
+            const backupData = await fetchJson(`${backupApi}/api/getSongUrl`, {
+                token: token,
+                id: id,
+                level: "lossless",
+            });
+
             if (backupData?.data?.url) {
                 audioUrl = backupData.data.url;
             }

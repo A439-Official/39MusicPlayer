@@ -1,7 +1,6 @@
 window.musicApi = window.musicApi || {};
 
-const rootUrl = "https://ncm.zhenxin.me";
-const backupApi = "https://nextmusic.toubiec.cn";
+const rootUrl = "https://ncm-api.prod.gbclstudio.cn";
 
 const pendingPromises = {
     songs: {},
@@ -50,7 +49,7 @@ const fetchJson = async (url, data, retries = 1) => {
         for (let i = 0; i < retries; i++) {
             try {
                 const options = {
-                    method: data ? "POST" : "GET",
+                    method: data !== undefined ? "POST" : "GET",
                     headers: {},
                 };
                 if (data) {
@@ -249,25 +248,11 @@ window.musicApi.getSongUrl = async (id) => {
     if (!audioUrl) {
         const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
         const urlData = mainData?.data?.[0];
+
         if (info.fee > 0 || !urlData) {
-            // const backupData = await fetchJson(`${backupApi}?id=${id}&type=json&level=lossless`);
-            // if (backupData?.data?.url) {
-            //     audioUrl = backupData.data.url;
-            // }
-
-            const ip = await fetchJson(`${backupApi}/api/getip`);
-            const token = window.hash.md5(`suxiaoqings:${ip.data.ip}`);
-
-            const backupData = await fetchJson(`${backupApi}/api/getSongUrl`, {
-                token: token,
-                id: id,
-                level: "lossless",
-            });
-
-            if (backupData?.data?.url) {
-                audioUrl = backupData.data.url;
-            }
+            audioUrl = await window.netease.getUrl(id);
         }
+
         audioUrl = audioUrl || urlData?.url;
         if (!audioUrl) return null;
         info.url = audioUrl;

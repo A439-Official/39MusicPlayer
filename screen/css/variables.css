@@ -1,13 +1,12 @@
 :root {
-    --text-1: #000000;
-    --text-2: #000000;
+    --text-1: #ffffff;
+    --text-2: #ffffff;
 
-    --color-1: #000000;
-    --color-2: #000000;
-    --color-2-1: #000000d0;
-    --color-3: #000000;
-    --color-4: #000000;
-    --color-5: #000000;
+    --color-1: #ffffff;
+    --color-2: #ffffff;
+    --color-3: #ffffff;
+    --color-4: #ffffff;
+    --color-5: #ffffff;
 
     --border-radius: 0.5em;
     --button-width: 0.1rem;

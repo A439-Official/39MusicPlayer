@@ -152,8 +152,10 @@ async function playSong(songId, play = true) {
         console.error("Failed to save last played song ID:", error);
     }
 
-    currentAudio.addEventListener("timeupdate", updateSeekBar);
+    currentAudio.removeEventListener("timeupdate", updateSeekBar);
+    const seekUpdateInterval = setInterval(updateSeekBar, 10);
     endedHandler = function () {
+        clearInterval(seekUpdateInterval);
         if (window.playNext && typeof window.playNext === "function") {
             try {
                 window.playNext();
@@ -343,11 +345,8 @@ function renderLyrics(lyrics) {
     });
 }
 
-// 根据当前时间更新歌词高亮和滚动
 function updateLyricHighlight(currentTime) {
     if (currentLyrics.length === 0 || !lyricsLines) return;
-
-    // 找到当前时间对应的歌词索引
     let newIndex = -1;
     for (let i = 0; i < currentLyrics.length; i++) {
         if (currentTime >= currentLyrics[i].time) {
@@ -356,10 +355,7 @@ function updateLyricHighlight(currentTime) {
             break;
         }
     }
-
-    // 如果索引没有变化，无需更新
     if (newIndex === currentLyricIndex) return;
-
     const oldLine = lyricsLines.querySelector(".lyric-line.active");
     if (oldLine) {
         oldLine.classList.remove("active");

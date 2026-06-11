@@ -244,22 +244,16 @@ window.musicApi.getSongUrl = async (id) => {
     if (!info) return null;
 
     // 获取音频URL
-    let audioUrl = info.url;
+    let audioUrl = null;
+    const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
+    const urlData = mainData?.data?.[0];
+
+    if (info.fee > 0 || !urlData) {
+        audioUrl = await window.netease.getUrl(id);
+    }
+    audioUrl = audioUrl || urlData?.url;
     if (!audioUrl) {
-        const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
-        const urlData = mainData?.data?.[0];
-
-        if (info.fee > 0 || !urlData) {
-            audioUrl = await window.netease.getUrl(id);
-        }
-
-        audioUrl = audioUrl || urlData?.url;
-        if (!audioUrl) return null;
-        info.url = audioUrl;
-        const infoBuffer = jsonToBuffer(info);
-        if (infoBuffer) {
-            await electronAPI.saveCache(`${id}_info`, infoBuffer);
-        }
+        return null;
     }
     downloadAndCacheAudio(id, audioUrl);
     return { id, url: audioUrl, fromCache: false };

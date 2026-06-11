@@ -153,23 +153,24 @@ function update() {
                 // 绘制
                 const progress = getAnimProgress(time, startTime, duration);
 
-                const spacing = (screen.width / 256) * Math.abs(progress);
+                const widthScale = 1 + (screen.width / 2 ** 14) * Math.abs(progress);
 
                 if (chars.length === 0) return;
 
                 const charWidths = [];
-                for (const ch of chars) charWidths.push(ctx.measureText(ch).width);
-                let sumWidth = 0;
-                for (const w of charWidths) sumWidth += w;
-                const totalWidth = sumWidth + spacing * (chars.length - 1);
+                for (const ch of chars) charWidths.push(ctx.measureText(ch).width * widthScale);
+                let totalWidth = 0;
+                for (const w of charWidths) {
+                    totalWidth += w;
+                }
                 let startX = centerX - totalWidth / 2;
 
                 let currentX = startX;
                 for (let i = 0; i < chars.length; i++) {
-                    const offsetX = screen.height * 0.02 * (random(i + 1 + chars[i] + chars.length + (currentLyricIndex + (progress > 0)) * 0.618) * 2 - 1) * Math.abs(progress);
-                    const offsetY = screen.height * 0.02 * (random(i - 1 + chars[i] + chars.length + (currentLyricIndex + (progress > 0)) * 0.618) * 2 - 1) * Math.abs(progress);
+                    const offsetX = screen.height * 0.005 * (random(i + 1 + chars[i] + chars.length + (currentLyricIndex + (progress > 0)) * 0.618) * 2 - 1) * Math.abs(progress);
+                    const offsetY = screen.height * 0.005 * (random(i - 1 + chars[i] + chars.length + (currentLyricIndex + (progress > 0)) * 0.618) * 2 - 1) * Math.abs(progress);
                     ctx.fillText(chars[i], currentX + charWidths[i] / 2 + offsetX, centerY + offsetY);
-                    currentX += charWidths[i] + spacing;
+                    currentX += charWidths[i];
                 }
             }
         }

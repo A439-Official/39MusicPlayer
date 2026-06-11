@@ -89,8 +89,13 @@ function createLyricsWindow() {
         frame: false,
         transparent: true,
         resizable: false,
+        focusable: false,
         skipTaskbar: true,
     });
+
+    lyricsWindow.setAlwaysOnTop(true, "screen-saver");
+
+    lyricsWindow.setVisibleOnAllWorkspaces(true, { visibleOnFullScreen: true });
 
     lyricsWindow.setIgnoreMouseEvents(true);
 

@@ -14,6 +14,36 @@ let lyricsContainer = null;
 let lyricsLines = null;
 let currentAudioDuration = 0;
 
+function setupMediaSession() {
+    if (!("mediaSession" in navigator)) return;
+
+    navigator.mediaSession.setActionHandler("play", () => {
+        window.togglePause(document.getElementById("pause-btn"));
+    });
+
+    navigator.mediaSession.setActionHandler("pause", () => {
+        window.togglePause(document.getElementById("pause-btn"));
+    });
+
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+        if (window.playPrev) {
+            window.playPrev();
+        }
+    });
+
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+        if (window.playNext) {
+            window.playNext();
+        }
+    });
+
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (details.seekTime != null) {
+            currentAudio.currentTime = details.seekTime;
+        }
+    });
+}
+
 function cleanupCurrentBlobUrl() {
     if (currentBlobUrl && currentBlobUrl.startsWith("blob:")) {
         URL.revokeObjectURL(currentBlobUrl);
@@ -77,6 +107,21 @@ async function playSong(songId, play = true) {
             } else {
                 el.style.backgroundImage = songInfo?.pic ? `url("${songInfo.pic}")` : "";
             }
+        }
+
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: songInfo?.name || "",
+                artist: Array.isArray(songInfo?.artist) ? songInfo.artist.join(" & ") : songInfo?.artist || "",
+                album: songInfo?.album || "",
+                artwork: [
+                    {
+                        src: songInfo?.pic || "",
+                        sizes: "512x512",
+                        type: "image/png",
+                    },
+                ],
+            });
         }
     }
 
@@ -374,4 +419,7 @@ function updateLyricHighlight(currentTime) {
     }
 }
 
-document.addEventListener("DOMContentLoaded", loadLastPlayedSong);
+document.addEventListener("DOMContentLoaded", () => {
+    setupMediaSession();
+    loadLastPlayedSong();
+});

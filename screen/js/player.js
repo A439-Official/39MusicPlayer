@@ -126,7 +126,7 @@ async function playSong(songId, play = true) {
     }
 
     try {
-        await addToPlayHistory(songId);
+        await addSongToPlaylist(songId, "History");
     } catch (error) {
         console.error("Failed to add song to play history:", error);
     }
@@ -418,8 +418,3 @@ function updateLyricHighlight(currentTime) {
         }
     }
 }
-
-document.addEventListener("DOMContentLoaded", () => {
-    setupMediaSession();
-    loadLastPlayedSong();
-});

@@ -1,4 +1,6 @@
-document.addEventListener("DOMContentLoaded", function () {
+let enableVisualizer = true;
+
+function initVisualizer() {
     // 确保currentAudio存在
     if (typeof currentAudio === "undefined") {
         console.warn("Audio element not found");
@@ -103,6 +105,9 @@ document.addEventListener("DOMContentLoaded", function () {
         canvas.height = canvas.offsetHeight;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!enableVisualizer) return;
+
         const frame = avgFrame;
         const minDecibels = analyser.minDecibels;
         const maxDecibels = analyser.maxDecibels;
@@ -178,4 +183,4 @@ document.addEventListener("DOMContentLoaded", function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
         frameHistory = []; // 清空历史帧
     };
-});
+}

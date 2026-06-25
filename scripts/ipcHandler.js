@@ -1,10 +1,11 @@
-const { ipcMain } = require("electron");
+const { ipcMain, shell } = require("electron");
 const CacheManager = require("./cacheManager");
+const { checkForUpdates, autoUpdater } = require("./autoUpdater");
 
 function registerIPC(app, configManager) {
     const cacheManager = new CacheManager(configManager);
 
-    ipcMain.handle("quit", (event) => {
+    ipcMain.on("quit", (event) => {
         app.quit();
     });
 
@@ -31,6 +32,26 @@ function registerIPC(app, configManager) {
     // 清空缓存
     ipcMain.handle("clear-cache", async (event) => {
         return await cacheManager.clearCache();
+    });
+
+    ipcMain.on("send-lyrics", (event, data) => {
+        if (lyricsWindow) {
+            lyricsWindow.webContents.send("lyrics", data);
+        }
+    });
+
+    ipcMain.on("send-time", (event, songTime, sendTime) => {
+        if (lyricsWindow) {
+            lyricsWindow.webContents.send("time", songTime, sendTime);
+        }
+    });
+
+    ipcMain.on("open-external", (event, url) => {
+        shell.openExternal(url);
+    });
+
+    ipcMain.on("check-for-updates", async () => {
+        return await checkForUpdates();
     });
 }
 

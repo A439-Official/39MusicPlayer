@@ -4,7 +4,7 @@ let themeSelectCustom = null;
 
 async function loadThemes() {
     try {
-        const response = await fetch("../resources/themes.json");
+        const response = await fetch("res://themes.json");
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -87,7 +87,3 @@ function initTheme() {
         resolve();
     });
 }
-
-document.addEventListener("DOMContentLoaded", async () => {
-    await initTheme();
-});

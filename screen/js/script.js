@@ -8,7 +8,7 @@ function switchToPlayerTab() {
     document.getElementById("content-player")?.classList.add("active");
 }
 
-document.addEventListener("DOMContentLoaded", () => {
+document.addEventListener("DOMContentLoaded", async () => {
     // Tab switching
     const tabs = document.querySelectorAll(".tab-title");
     tabs.forEach((tab) => {
@@ -19,4 +19,40 @@ document.addEventListener("DOMContentLoaded", () => {
             document.getElementById(`content-${tabName}`)?.classList.add("active");
         });
     });
+
+    // Update history link handling
+    function handleLinkClick(e) {
+        const link = e.target.closest("a");
+        if (!link) return;
+        e.preventDefault();
+        const url = link.href;
+        window.electronAPI.openExternal(url);
+    }
+
+    const container = document.getElementById("update-history");
+    container.addEventListener("click", handleLinkClick);
+    container.addEventListener("auxclick", handleLinkClick);
+
+    initHomePage();
+
+    setupOptions();
+
+    initVolumeControl();
+
+    initSearch();
+
+    initI18n();
+
+    initTheme();
+
+    initVisualizer();
+
+    setupMediaSession();
+    loadLastPlayedSong();
+
+    initPlaylist();
+
+    initCoroll();
+
+    initModal();
 });

@@ -6,10 +6,11 @@ const url = require("node:url");
 function registerProtocolHandler(app) {
     protocol.handle("res", async (request) => {
         try {
-            let filePath = decodeURIComponent(request.url.slice("res:///".length));
+            console.log(request.url);
+            let filePath = decodeURIComponent(request.url.slice("res://".length));
             filePath = filePath.replace(/\//g, path.sep);
 
-            const absolutePath = path.join("./resources", filePath);
+            const absolutePath = path.join(app.getAppPath(), "resources", filePath);
 
             if (!fs.existsSync(absolutePath) || !fs.statSync(absolutePath).isFile()) {
                 return new Response("Not Found", { status: 404 });

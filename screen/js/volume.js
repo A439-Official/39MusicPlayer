@@ -1,39 +1,43 @@
-const volumeSlider = document.getElementById("volumeSlider");
+function initVolumeControl() {
+    const container = document.querySelector(".volume-progress-bar");
+    if (typeof currentAudio === "undefined" || !container) return;
 
-if (typeof currentAudio !== "undefined" && volumeSlider) {
-    const savedVolume = localStorage.getItem("playerVolume");
-    const initialVolume = savedVolume !== null ? parseFloat(savedVolume) : 1;
-    volumeSlider.value = initialVolume;
-    function setVolume(volume) {
-        localStorage.setItem("playerVolume", volume);
+    document.getElementById("volumeSlider")?.remove();
+
+    const getVolume = () => window.electronAPI.getConfig("volume", 1);
+    const setVolume = (vol) => {
+        window.electronAPI.setConfig("volume", vol);
         if (window.volumeGainNode) {
-            window.volumeGainNode.gain.value = volume;
+            window.volumeGainNode.gain.value = vol;
         }
-    }
+    };
 
-    if (window.volumeGainNode) {
-        window.volumeGainNode.gain.value = initialVolume;
-    }
+    (async () => {
+        const initialVol = await getVolume();
+        const progressBar = new CustomProgressBar(container, initialVol, setVolume, true);
+        if (window.volumeGainNode) {
+            window.volumeGainNode.gain.value = initialVol;
+        }
 
-    volumeSlider.addEventListener("input", function () {
-        const volume = parseFloat(this.value);
-        setVolume(volume);
-    });
+        const muteBtn = document.getElementById("volume-button");
+        if (!muteBtn) return;
 
-    volumeSlider.addEventListener("dblclick", function () {
-        if (window.volumeGainNode && window.volumeGainNode.gain.value > 0) {
-            localStorage.setItem("playerVolumeBeforeMute", window.volumeGainNode.gain.value);
-            window.volumeGainNode.gain.value = 0;
-            this.value = 0;
-            localStorage.setItem("playerVolume", 0);
-        } else {
-            const savedVolume = localStorage.getItem("playerVolumeBeforeMute") || localStorage.getItem("playerVolume");
-            const volumeToSet = parseFloat(savedVolume) || 1;
-            if (window.volumeGainNode) {
-                window.volumeGainNode.gain.value = volumeToSet;
+        let isMuted = false;
+        let volumeBeforeMute = initialVol;
+
+        muteBtn.addEventListener("click", () => {
+            if (!window.volumeGainNode) return;
+
+            if (isMuted) {
+                const vol = volumeBeforeMute || 1;
+                setVolume(vol);
+                progressBar.setValue(vol);
+            } else {
+                volumeBeforeMute = window.volumeGainNode.gain.value;
+                setVolume(0);
+                progressBar.setValue(0);
             }
-            this.value = volumeToSet;
-            localStorage.setItem("playerVolume", volumeToSet);
-        }
-    });
+            isMuted = !isMuted;
+        });
+    })();
 }

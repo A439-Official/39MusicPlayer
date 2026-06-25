@@ -1,0 +1,102 @@
+.song-item {
+    display: flex;
+    align-items: center;
+    padding: 0.75em 1em;
+    border-bottom: 1px solid var(--color-4);
+}
+
+.song-item:hover {
+    background-color: var(--color-3);
+}
+
+.song-item:last-child {
+    border-bottom: none;
+}
+
+.song-item .song-item-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.song-item .song-title {
+    font-weight: bold;
+    color: var(--text-1);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.song-item .song-artist {
+    font-size: 0.75em;
+    color: var(--text-2);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.song-item .dropdown-menu {
+    width: 2.5em;
+    height: 2.5em;
+}
+
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1000;
+    backdrop-filter: blur(0.25em);
+}
+
+.modal-content {
+    color: var(--text-2);
+    background-color: var(--color-1);
+    padding: 1em;
+    border-radius: var(--border-radius);
+    display: flex;
+    flex-direction: column;
+    gap: 1em;
+}
+
+.modal-content h2 {
+    color: var(--text-1);
+}
+
+.modal-content input[type="text"] {
+    width: 100%;
+    padding: 0.75em;
+    border: 0.1em solid var(--color-4);
+    border-radius: var(--border-radius);
+    background-color: var(--color-2);
+    color: var(--text-1);
+    font-size: 1em;
+}
+
+.modal-content input[type="text"]:focus {
+    outline: none;
+    border-color: var(--color-accent);
+}
+
+.modal-content button {
+    background-color: var(--color-3);
+    color: var(--text-1);
+    border: none;
+    border-radius: var(--border-radius);
+    padding: 0.75em 1em;
+    font-size: 0.9em;
+    cursor: pointer;
+    width: 100%;
+    text-align: center;
+}
+
+.modal-content button:hover {
+    background-color: var(--color-4);
+}
+
+.modal-content button:active {
+    background-color: var(--color-5);
+}

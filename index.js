@@ -1,14 +1,16 @@
-const { app, BrowserWindow, Menu, MenuItem, session } = require("electron");
+const { app, BrowserWindow, Menu, MenuItem, session, protocol } = require("electron");
 const path = require("node:path");
 const ConfigManager = require("./scripts/configManager");
 const { registerProtocolHandler } = require("./scripts/protocolHandler");
 const { registerIPC } = require("./scripts/ipcHandler");
 const { createTray } = require("./scripts/trayManager");
+const AutoUpdater = require("./scripts/autoUpdater");
 
 const APP_NAME = "39MusicPlayer";
 
-let mainWindow = null;
-let configManager = null;
+let mainWindow;
+let configManager;
+let tray;
 const appLock = app.requestSingleInstanceLock();
 
 function focus() {
@@ -39,6 +41,7 @@ function createWindow() {
             backgroundThrottling: false,
         },
         autoHideMenuBar: true,
+        show: false,
     });
 
     mainWindow.setFullScreen(configManager.get("fullscreen", false));
@@ -60,6 +63,10 @@ function createWindow() {
 
     mainWindow.on("closed", () => {
         mainWindow = null;
+    });
+
+    mainWindow.once("ready-to-show", () => {
+        mainWindow.show();
     });
 
     return mainWindow;
@@ -117,12 +124,26 @@ function initializeApp() {
 
     createWindow();
     tray = createTray(app, focus);
+
+    AutoUpdater.setupAutoUpdater(mainWindow, configManager);
 }
 
 if (!appLock) {
     app.quit();
 } else {
     app.on("second-instance", focus);
+
+    protocol.registerSchemesAsPrivileged([
+        {
+            scheme: "res",
+            privileges: {
+                standard: true,
+                secure: true,
+                supportFetchAPI: true,
+                corsEnabled: true,
+            },
+        },
+    ]);
 
     app.whenReady().then(() => {
         app.isQuitting = false;

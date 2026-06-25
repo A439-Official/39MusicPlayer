@@ -1,6 +1,6 @@
-document.addEventListener("DOMContentLoaded", function () {
+function initCoroll() {
     const titleElement = document.querySelector(".song-title");
-    
+
     // 初始化溢出检测
     function checkOverflow() {
         const container = titleElement.parentElement;
@@ -26,8 +26,8 @@ document.addEventListener("DOMContentLoaded", function () {
     // 配置观察选项（监听文本变化和子节点变化）
     observer.observe(titleElement, {
         characterData: true, // 监听文本变化
-        childList: true,     // 监听子节点变化（如 innerHTML 修改）
-        subtree: true        // 监听所有后代节点
+        childList: true, // 监听子节点变化（如 innerHTML 修改）
+        subtree: true, // 监听所有后代节点
     });
 
     // 窗口大小变化时也重新检测（可选）
@@ -36,4 +36,4 @@ document.addEventListener("DOMContentLoaded", function () {
         clearTimeout(resizeTimeout);
         resizeTimeout = setTimeout(checkOverflow, 100);
     });
-});
+}

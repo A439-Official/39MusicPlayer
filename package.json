@@ -1,6 +1,6 @@
 {
     "name": "39musicplayer",
-    "version": "1.0.0",
+    "version": "0.8.0-alpha",
     "description": "",
     "main": "index.js",
     "scripts": {
@@ -23,18 +23,24 @@
         "electron-builder": "^26.8.1"
     },
     "build": {
-        "appId": "com.a439.39musicplayer",
+        "appId": "xyz.a439.39musicplayer",
         "productName": "39MusicPlayer",
         "directories": {
             "output": "dist"
         },
+        "publish": [
+            {
+                "provider": "github",
+                "owner": "A439-Official",
+                "repo": "39MusicPlayer"
+            }
+        ],
         "win": {
             "target": [
                 {
                     "target": "nsis",
                     "arch": [
-                        "x64",
-                        "ia32"
+                        "x64"
                     ]
                 }
             ],
@@ -55,6 +61,7 @@
     "dependencies": {
         "crypto-js": "^4.2.0",
         "electron-updater": "^6.8.3",
+        "marked": "^18.0.5",
         "puppeteer": "^25.0.4"
     }
 }

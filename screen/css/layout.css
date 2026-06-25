@@ -8,7 +8,7 @@
     gap: 1em;
     position: absolute;
     top: 0;
-    bottom: 6em;
+    bottom: 12vh;
 }
 .tab-list.hidden {
     opacity: 0;
@@ -46,7 +46,7 @@
     position: absolute;
     top: 0;
     right: 0;
-    bottom: 6em;
+    bottom: 12vh;
     left: 20vw;
 }
 
@@ -56,10 +56,26 @@
 }
 
 .setting-item {
-    margin-bottom: 3em;
+    margin-bottom: 2em;
 }
 
 .setting-item p {
     color: var(--text-1);
     margin: 0.5em;
+}
+
+.setting-item button {
+    font-size: 2vh;
+    background-color: var(--color-1);
+    color: var(--text-1);
+    padding: 0.75em;
+    border-radius: var(--border-radius);
+    border: none;
+    cursor: pointer;
+    width: 100%;
+    max-width: 32em;
+}
+
+.setting-item button:hover {
+    background-color: var(--color-3);
 }

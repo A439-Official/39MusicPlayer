@@ -30,11 +30,8 @@ class ConfigManager {
         try {
             if (fs.existsSync(this.configFile)) {
                 const configData = fs.readFileSync(this.configFile, "utf8");
-                const loadedConfig = JSON.parse(configData);
-                // 合并默认配置和已保存的配置
-                return this.mergeConfig(this.defaultConfig, loadedConfig);
+                return JSON.parse(configData);
             } else {
-                // 创建默认配置文件
                 this.saveConfig(this.defaultConfig);
                 return { ...this.defaultConfig };
             }
@@ -42,26 +39,6 @@ class ConfigManager {
             console.error("加载配置文件失败:", error);
             return { ...this.defaultConfig };
         }
-    }
-
-    /**
-     * 深度合并配置对象
-     */
-    mergeConfig(defaultConfig, loadedConfig) {
-        const result = { ...defaultConfig };
-
-        for (const key in loadedConfig) {
-            if (loadedConfig.hasOwnProperty(key)) {
-                if (typeof loadedConfig[key] === "object" && loadedConfig[key] !== null && typeof result[key] === "object" && result[key] !== null) {
-                    // 递归合并对象
-                    result[key] = this.mergeConfig(result[key], loadedConfig[key]);
-                } else {
-                    result[key] = loadedConfig[key];
-                }
-            }
-        }
-
-        return result;
     }
 
     /**
@@ -119,38 +96,6 @@ class ConfigManager {
         }
 
         current[keys[keys.length - 1]] = value;
-        return this.saveConfig();
-    }
-
-    /**
-     * 删除配置项
-     */
-    delete(key) {
-        const keys = key.split(".");
-        let current = this.config;
-
-        for (let i = 0; i < keys.length - 1; i++) {
-            const k = keys[i];
-            if (!(k in current) || typeof current[k] !== "object") {
-                return false;
-            }
-            current = current[k];
-        }
-
-        const lastKey = keys[keys.length - 1];
-        if (lastKey in current) {
-            delete current[lastKey];
-            return this.saveConfig();
-        }
-
-        return false;
-    }
-
-    /**
-     * 重置为默认配置
-     */
-    reset() {
-        this.config = { ...this.defaultConfig };
         return this.saveConfig();
     }
 

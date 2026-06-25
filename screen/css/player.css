@@ -4,18 +4,19 @@
     bottom: 0;
     color: var(--text-1);
     width: 100%;
-    height: 6em;
+    height: 12vh;
     position: fixed;
     display: flex;
     justify-content: flex-start;
     align-items: center;
     overflow: hidden;
+    z-index: 2;
 }
 
 .footer-tabs .footer-img {
     position: fixed;
     width: 100%;
-    height: 6em;
+    height: 12vh;
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
@@ -93,9 +94,7 @@
 }
 
 .seek-bar div {
-    height: 100%;
     border-radius: 0.25em;
-    background-color: var(--text-1);
 }
 
 .buttons {
@@ -124,9 +123,16 @@
 
 .volume-progress-bar {
     display: none;
-    position: absolute;
-    height: 220px;
-    align-items: center;
+    width: 0.5em;
+    height: 16vh;
+    background: var(--color-1);
+    border-radius: 0.25em;
+    overflow: hidden;
+    position: relative;
+}
+
+.volume-progress-bar div {
+    border-radius: 0.25em;
 }
 
 .volume {
@@ -155,81 +161,51 @@
     display: flex;
 }
 
-#volumeSlider {
-    transform: rotate(270deg);
-    transform-origin: center;
-    width: 10em;
-    height: 0.5em;
-}
-
-.tab-content.act {
-    left: 0;
-}
-
 #content-player {
+    height: 88vh;
+    overflow: hidden;
+    display: flex;
+    flex-direction: column;
     padding: 0;
+}
+
+.player-title {
+    padding: 3em;
+}
+
+.player-title-song {
+    font-size: 4vh;
+}
+
+.player-title-artist {
+    font-size: 2vh;
+}
+
+.player-container {
+    flex: 1;
+    min-height: 0;
+    overflow: hidden;
     display: flex;
-    justify-content: space-evenly;
     align-items: center;
-    flex-direction: row;
+    padding: 2em;
 }
 
-.player-img {
-    width: 353px;
-    height: 353px;
-    margin: 50px;
-    border: 3px solid var(--text-1);
-    box-shadow: 13px 24px 40px -4px var(--text-1);
+.player-container-img {
+    margin: 4em;
+    width: min(32vw, 48vh);
+    height: min(32vw, 48vh);
+    border: 0.25em solid var(--text-1);
+    border-radius: var(--border-radius);
 }
 
-.text-box {
-    width: 450px;
-    height: 70%;
-    display: flex;
-    flex-direction: column;
-    margin: 0 30px;
-    padding: 0 25px;
-    align-items: flex-start;
-}
-
-.titleartist-box {
+.player-container-lyrics {
     width: 100%;
-    height: auto;
-    display: flex;
-    flex-direction: column;
-    align-items: flex-start;
-}
-
-.titleartist-box h1 {
-    width: 410px;
-    white-space: nowrap;
-    text-overflow: ellipsis;
-    overflow: hidden;
-}
-
-.titleartist-box h3 {
-    width: 300px;
-    white-space: nowrap;
-    display: flex;
-    margin: 10px 0;
-}
-
-.titleartist-box p {
-    text-overflow: ellipsis;
-    overflow: hidden;
-}
-
-/* 歌词容器样式 */
-.lyrics-container {
-    width: 100%;
-    height: 80%;
+    height: 75vh;
     overflow: hidden;
     position: relative;
-    margin-top: 20px;
-    padding: 10px;
 }
 
-.lyrics-container::before {
+.player-container-lyrics::before {
     content: "";
     position: absolute;
     pointer-events: none;
@@ -238,28 +214,28 @@
     width: 100%;
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(to bottom, var(--color-2) 15%, transparent 25%, transparent 75%, var(--color-2) 85%);
+    background: linear-gradient(to bottom, var(--color-2) 10%, transparent 20%, transparent 80%, var(--color-2) 90%);
     z-index: 1;
 }
 
 .lyrics-lines {
+    overflow-x: hidden;
     height: 100%;
     overflow-y: auto;
     scroll-behavior: smooth;
-    padding-right: 10px;
-    padding-block: 100px;
+    padding-block: 10em;
 }
 
 .lyric-line {
-    padding: 8px 12px;
-    margin: 4px 0;
-    font-size: 16px;
+    width: 100%;
+    padding: 2vh;
+    font-size: 2vh;
     color: var(--text-2);
-    transition: all 0.3s ease;
+    transition: font-size 0.3s ease;
 }
 
 .lyric-line.active {
     color: var(--text-1);
     font-weight: bold;
-    transform: scale(1.05);
+    font-size: 2.5vh;
 }

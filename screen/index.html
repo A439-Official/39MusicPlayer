@@ -2,6 +2,7 @@
 <html lang="en">
     <head>
         <link rel="stylesheet" href="css/main.css" />
+        <meta charset="UTF-8" />
     </head>
 
     <body>
@@ -12,22 +13,25 @@
             <span class="tab-title" id="tab-settings" data-i18n="Settings"></span>
         </div>
         <div class="tab-content active" id="content-home">
-            <p>Tab: Home</p>
+            <img src="res://homelogo.png" class="home-logo" />
+            <div id="update-history"></div>
         </div>
         <div class="tab-content" id="content-search">
             <input type="text" id="search-input" />
-            <table id="search-results-table">
-                <thead>
-                    <tr>
-                        <th data-i18n="Title">Title</th>
-                        <th data-i18n="Artist">Artist</th>
-                        <th data-i18n="Action">Action</th>
-                    </tr>
-                </thead>
-                <tbody id="search-results-body"></tbody>
-            </table>
+            <div id="search-results-container"></div>
         </div>
-        <div class="tab-content" id="content-playlist"></div>
+        <div class="tab-content" id="content-playlist">
+            <div id="playlist-select-container" class="setting-item">
+                <p data-i18n="Playlist"></p>
+                <div id="playlist-selector-custom"></div>
+            </div>
+
+            <button id="create-playlist-btn" class="btn" data-i18n="Create Playlist"></button>
+
+            <div id="playlist-empty-msg" class="empty-message" data-i18n="No songs in playlist"></div>
+
+            <div id="playlist-list-container"></div>
+        </div>
         <div class="tab-content" id="content-settings">
             <div class="setting-item" id="setting-language">
                 <p data-i18n="Language"></p>
@@ -37,20 +41,25 @@
                 <p data-i18n="Theme"></p>
                 <div id="theme-select-custom"></div>
             </div>
+            <div class="setting-item" id="setting-update">
+                <p data-i18n="Check for Updates"></p>
+                <button id="check-update-btn" class="btn">Check</button>
+            </div>
+            <div class="setting-item" id="setting-update">
+                <p data-i18n="Visualizer"></p>
+                <div id="visualizer-toggle-container"></div>
+            </div>
         </div>
         <div class="tab-content" id="content-player">
-            <img src="../resources/als.jpg" class="player-img data-cover" />
-            <div class="text-box">
-                <div class="titleartist-box">
-                    <h1 class="data-title" id="song-title2">标题</h1>
-                    <h3>
-                        歌手：
-                        <p class="data-artist" id="song-artist2"></p>
-                    </h3>
-                </div>
-                <div class="lyrics-container" id="lyrics-container">
+            <div class="player-title">
+                <h1 class="player-title-song data-title" id="song-title2"></h1>
+                <h3 class="player-title-artist data-artist" id="song-artist2"></h3>
+            </div>
+            <div class="player-container">
+                <div class="player-container-lyrics" id="lyrics-container">
                     <div class="lyrics-lines" id="lyrics-lines"></div>
                 </div>
+                <img class="player-container-img data-cover" />
             </div>
             <div class="audio-visualizer">
                 <canvas id="visualizer"></canvas>
@@ -60,10 +69,10 @@
             <div class="footer-img data-cover"></div>
             <div class="event-overlay" onclick="switchToPlayerTab()">
                 <div class="title-box">
-                    <p class="data-title song-title" id="song-title">曲名</p>
+                    <p class="data-title song-title" id="song-title"></p>
                 </div>
                 <div class="artist-box">
-                    <span class="data-artist song-artist" id="song-artist">歌手</span>
+                    <span class="data-artist song-artist" id="song-artist"></span>
                 </div>
                 <p class="time-box"><span id="current-time">00:00</span>&nbsp;/&nbsp;<span id="total-time">00:00</span></p>
             </div>
@@ -92,6 +101,9 @@
             </div>
             <div class="seek-bar" id="seek-bar"></div>
         </div>
+        <div class="modal-overlay">
+            <div class="modal-content"></div>
+        </div>
     </body>
 </html>
 
@@ -107,3 +119,5 @@
 <script src="js/css.js"></script>
 <script src="js/visualizer.js"></script>
 <script src="js/options.js"></script>
+<script src="js/home.js"></script>
+<script src="js/ui.js"></script>

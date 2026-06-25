@@ -1,0 +1,80 @@
+.home-logo {
+    position: relative;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 75%;
+    border-radius: var(--border-radius);
+}
+
+#update-history {
+    padding: 1rem;
+    overflow-y: auto;
+}
+
+.update-list {
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.update-item {
+    padding: 1rem;
+    border-radius: var(--border-radius);
+    background: var(--color-1);
+}
+
+.update-item h3 {
+    color: var(--text-1);
+}
+
+.update-date {
+    margin: 0.3rem 0;
+    font-size: 0.85rem;
+    color: var(--text-2);
+    opacity: 0.75;
+}
+
+.update-body {
+    color: var(--text-2);
+    line-height: 1.6;
+}
+
+.loading,
+.error,
+.empty {
+    padding: 2rem;
+    text-align: center;
+    color: var(--text-2);
+}
+
+.update-body ul,
+.update-body ol {
+    padding-left: 1.5rem;
+}
+
+.update-body pre {
+    overflow-x: auto;
+    padding: 0.75rem;
+    border-radius: var(--border-radius);
+}
+
+.update-body code {
+    padding: 0.15rem 0.35rem;
+    border-radius: var(--border-radius);
+}
+
+.update-body pre code {
+    padding: 0;
+    background: none;
+}
+
+.update-body blockquote {
+    margin: 0.75rem 0;
+    padding-left: 0.75rem;
+    opacity: 0.9;
+}
+
+.update-body a {
+    color: var(--text-1);
+    text-decoration: none;
+}

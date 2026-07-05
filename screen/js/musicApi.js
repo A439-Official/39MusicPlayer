@@ -1,103 +1,106 @@
 window.musicApi = window.musicApi || {};
 
-const rootUrl = "https://ncm-api.prod.gbclstudio.cn";
+const servers = {
+    virome: "https://verome-api.deno.dev",
+    invidious: "https://yt.omada.cafe",
+    pipied: "https://api.piped.private.coffee",
+};
+
+const MAX = 5;
+let active = 0;
+const queue = [];
+
+const runNext = () => {
+    if (active >= MAX || !queue.length) return;
+
+    const { fn, resolve, reject } = queue.shift();
+    active++;
+
+    Promise.resolve()
+        .then(fn)
+        .then(resolve, reject)
+        .finally(() => {
+            active--;
+            runNext();
+        });
+};
 
 const pendingPromises = {
     songs: {},
-    lyrics: {},
-    mvs: {},
     audio: {},
 };
 
-// 并发控制
-const MAX_CONCURRENT_REQUESTS = 5;
-let activeRequests = 0;
-const requestQueue = [];
-
-function processQueue() {
-    if (activeRequests >= MAX_CONCURRENT_REQUESTS || requestQueue.length === 0) {
-        return;
-    }
-
-    const { requestFn, resolve, reject } = requestQueue.shift();
-    activeRequests++;
-
-    requestFn()
-        .then((result) => {
-            activeRequests--;
-            resolve(result);
-            setTimeout(processQueue, 0);
-        })
-        .catch((error) => {
-            activeRequests--;
-            reject(error);
-            setTimeout(processQueue, 0);
-        });
-}
-
-// 将请求加入队列
-function enqueueRequest(requestFn) {
+function enqueueRequest(fn) {
     return new Promise((resolve, reject) => {
-        requestQueue.push({ requestFn, resolve, reject });
-        setTimeout(processQueue, 0);
+        queue.push({ fn, resolve, reject });
+        runNext();
     });
 }
 
-const fetchJson = async (url, data, retries = 1) => {
+async function rfUrl(url) {
+    const res = await fetch(url, {
+        method: "HEAD",
+        redirect: "follow",
+    });
+    return res.url;
+}
+
+function fetchData(url, retries = 3) {
     return enqueueRequest(async () => {
         let lastError;
         for (let i = 0; i < retries; i++) {
             try {
-                const options = {
-                    method: data !== undefined ? "POST" : "GET",
-                    headers: {},
-                };
-                if (data) {
-                    options.headers["Content-Type"] = "application/json";
-                    options.body = JSON.stringify(data);
-                }
-                const response = await fetch(url, options);
+                const response = await fetch(url);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
                 const result = await response.json();
-                if (result.code !== 200) {
-                    throw new Error(`API error: ${result.code}`);
-                }
                 return result;
             } catch (error) {
                 lastError = error;
+                console.warn(`Fetch attempt ${i + 1} failed. Retrying...`);
                 if (i === retries - 1) {
+                    console.error("All fetch retries failed. Last error:", error);
                     return null;
                 }
                 await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
             }
         }
+        console.error("Unexpected error in fetch retry logic", lastError);
         return null;
     });
-};
+}
 
 // 解析歌曲信息
-const parseSong = (song, privilege) => ({
-    id: song.id.toString(),
-    name: song.name,
-    artist: song.ar?.map((a) => a.name) || [],
-    album: song.al?.name || "",
-    pic: song.al?.picUrl || "",
-    mv: song.mv,
-    fee: song.fee || 0,
-});
+function parseSong(data) {
+    return {
+        id: data.videoId || data.url.split("=")[1],
+        name: data.title,
+        artist: data.artist?.name || data.artists?.map((artist) => artist.name).join(" & ") || data.uploaderName,
+        pic: data.thumbnail.split("=")[0] || data.thumbnails[0].url.split("?")[0],
+    };
+}
 
 // 解析歌词
-const parseLyrics = (lyricData) =>
-    lyricData?.lyric
-        ?.split("\n")
-        .filter((line) => line.trim())
-        .map((line) => {
-            const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
-            return match ? { time: parseInt(match[1]) * 60 + parseFloat(match[2]), text: match[3].trim() } : null;
-        })
-        .filter(Boolean) || [];
+function parseLyrics(lyricData) {
+    return (
+        lyricData?.lyric
+            ?.split("\n")
+            .filter(function (line) {
+                return line.trim();
+            })
+            .map(function (line) {
+                const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
+                return match
+                    ? {
+                          time: parseInt(match[1], 10) * 60 + parseFloat(match[2]),
+                          text: match[3].trim(),
+                      }
+                    : null;
+            })
+            .filter(Boolean) || []
+    );
+}
 
 function bufferToJson(buffer) {
     if (!buffer) return null;
@@ -132,9 +135,9 @@ window.musicApi.getSongInfo = async (id) => {
     }
     const promise = (async () => {
         try {
-            const data = await fetchJson(`${rootUrl}/song/detail?ids=${id}`);
-            if (!data?.songs[0]) return null;
-            const song_info = parseSong(data.songs[0]);
+            const data = await fetchData(`${servers.virome}/api/songs/${id}`);
+            if (!data.success) return null;
+            const song_info = parseSong({ ...data.song, ...data });
             const buffer = jsonToBuffer(song_info);
             if (buffer) {
                 await electronAPI.saveCache(`${id}_info`, buffer);
@@ -149,9 +152,10 @@ window.musicApi.getSongInfo = async (id) => {
 };
 
 // 搜索歌曲
-window.musicApi.search = async (text, limit = 30, page = 0) => {
-    const data = await fetchJson(`${rootUrl}/cloudsearch?limit=${limit}&offset=${page * limit}&keywords=${encodeURIComponent(text)}`);
-    const songs = data?.result?.songs || [];
+window.musicApi.search = async (text) => {
+    const data = await fetchData(`${servers.pipied}/search?q=${encodeURIComponent(text)}&filter=music_songs`);
+    // const data = await fetchData(`${servers.virome}/api/search?filter=songs&q=${encodeURIComponent(text)}`);
+    const songs = data.items;
     return songs.map((song) => parseSong(song));
 };
 
@@ -243,18 +247,22 @@ window.musicApi.getSongUrl = async (id) => {
     const info = song_info || (await window.musicApi.getSongInfo(id));
     if (!info) return null;
 
-    // 获取音频URL
-    let audioUrl = null;
-    const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
-    const urlData = mainData?.data?.[0];
+    // // 获取音频URL
+    // const mainData = await fetchData(`${servers.virome}/api/stream?id=${id}`);
+    // const audioUrl = mainData.streamingUrls[mainData.streamingUrls.length - 1].directUrl;
 
-    if (info.fee > 0 || !urlData) {
-        audioUrl = await window.netease.getUrl(id);
-    }
-    audioUrl = audioUrl || urlData?.url;
+    let audioUrl = await rfUrl(`${servers.invidious}/companion/latest_version?id=${id}&itag=140`);
+
     if (!audioUrl) {
         return null;
     }
+
+    const audioUrlData = new URL(audioUrl);
+
+    audioUrlData.searchParams.set("host", encodeURIComponent(audioUrlData.host));
+
+    audioUrl = `${servers.invidious}/companion/videoplayback${audioUrlData.search}`;
+
     downloadAndCacheAudio(id, audioUrl);
     return { id, url: audioUrl, fromCache: false };
 };
@@ -300,7 +308,7 @@ window.musicApi.getLyric = async (id) => {
     }
     const promise = (async () => {
         try {
-            const data = await fetchJson(`${rootUrl}/lyric?id=${id}`);
+            const data = await fetchData(`${servers.virome}/lyric?id=${id}`);
             if (!data) return null;
             const lyricData = {
                 id,
@@ -317,39 +325,5 @@ window.musicApi.getLyric = async (id) => {
         }
     })();
     pendingPromises.lyrics[id] = promise;
-    return promise;
-};
-
-// 获取MV
-window.musicApi.getMv = async (id) => {
-    const buffer = await electronAPI.getCache(`${id}_mv`);
-    if (buffer) {
-        const mvData = bufferToJson(buffer);
-        if (mvData) return mvData;
-    }
-    if (pendingPromises.mvs[id]) {
-        return pendingPromises.mvs[id];
-    }
-    const promise = (async () => {
-        try {
-            const data = await fetchJson(`${rootUrl}/mv/url?id=${id}`);
-            if (!data?.data?.url) return null;
-            const [minutes, seconds] = data.data.duration.split(":").map(Number);
-            const mvData = {
-                id,
-                url: data.data.url,
-                size: data.data.size,
-                duration: (minutes * 60 + seconds) * 1000,
-            };
-            const buffer = jsonToBuffer(mvData);
-            if (buffer) {
-                await electronAPI.saveCache(`${id}_mv`, buffer);
-            }
-            return mvData;
-        } finally {
-            delete pendingPromises.mvs[id];
-        }
-    })();
-    pendingPromises.mvs[id] = promise;
     return promise;
 };

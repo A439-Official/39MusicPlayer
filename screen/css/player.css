@@ -191,11 +191,15 @@
 }
 
 .player-container-img {
+    aspect-ratio: 1 / 1;
     margin: 4em;
     width: min(32vw, 48vh);
     height: min(32vw, 48vh);
     border: 0.25em solid var(--text-1);
     border-radius: var(--border-radius);
+    background-size: cover;
+    background-position: center;
+    background-repeat: no-repeat;
 }
 
 .player-container-lyrics {

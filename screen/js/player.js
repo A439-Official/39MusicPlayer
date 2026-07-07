@@ -102,11 +102,7 @@ async function playSong(songId, play = true) {
         }
         const coverEl = document.getElementsByClassName("data-cover");
         for (const el of coverEl) {
-            if (el.tagName === "IMG") {
-                el.src = songInfo?.pic || "";
-            } else {
-                el.style.backgroundImage = songInfo?.pic ? `url("${songInfo.pic}")` : "";
-            }
+            el.style.backgroundImage = songInfo?.pic ? `url("${songInfo.pic}")` : "";
         }
 
         if ("mediaSession" in navigator) {

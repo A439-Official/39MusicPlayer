@@ -354,10 +354,8 @@ async function loadLyrics(songId) {
     try {
         const lyricData = await window.musicApi.getLyric(songId);
         if (!lyricData) {
-            console.log("无歌词数据");
             return;
         }
-
         currentLyrics = lyricData.lyrics;
 
         // 渲染歌词
@@ -394,12 +392,14 @@ function updateLyricHighlight(currentTime) {
     if (currentLyrics.length === 0 || !lyricsLines) return;
     let newIndex = -1;
     for (let i = 0; i < currentLyrics.length; i++) {
+        if (currentLyrics[i].time === null) continue;
         if (currentTime >= currentLyrics[i].time) {
             newIndex = i;
         } else {
             break;
         }
     }
+    if (newIndex === -1) return;
     if (newIndex === currentLyricIndex) return;
     const oldLine = lyricsLines.querySelector(".lyric-line.active");
     if (oldLine) {

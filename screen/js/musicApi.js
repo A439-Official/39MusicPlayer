@@ -1,11 +1,14 @@
 window.musicApi = window.musicApi || {};
 
 const servers = {
-    virome: "https://verome-api.deno.dev",
     invidious: "https://yt.omada.cafe",
-    pipied: "https://api.piped.private.coffee",
+    youtube: "https://www.youtube.com",
+    ytmusic: "https://music.youtube.com",
+    wsrv: "https://wsrv.nl",
+    lyrics: "https://lyrics.lewdhutao.my.eu.org",
 };
 
+const retries = 8;
 const MAX = 5;
 let active = 0;
 const queue = [];
@@ -28,6 +31,7 @@ const runNext = () => {
 const pendingPromises = {
     songs: {},
     audio: {},
+    lyrics: {},
 };
 
 function enqueueRequest(fn) {
@@ -42,15 +46,25 @@ async function rfUrl(url) {
         method: "HEAD",
         redirect: "follow",
     });
+
     return res.url;
 }
 
-function fetchData(url, retries = 3) {
+function fetchData(url, data) {
     return enqueueRequest(async () => {
         let lastError;
         for (let i = 0; i < retries; i++) {
             try {
-                const response = await fetch(url);
+                const options = {
+                    method: data ? "POST" : "GET",
+                    headers: {
+                        "Content-Type": "application/json",
+                    },
+                };
+                if (data) {
+                    options.body = JSON.stringify(data);
+                }
+                const response = await fetch(url, options);
                 if (!response.ok) {
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }
@@ -73,33 +87,24 @@ function fetchData(url, retries = 3) {
 
 // 解析歌曲信息
 function parseSong(data) {
+    const videoId = data.thumbnail_url.match(/\/vi\/([^/]+)\//)[1];
     return {
-        id: data.videoId || data.url.split("=")[1],
+        id: videoId,
         name: data.title,
-        artist: data.artist?.name || data.artists?.map((artist) => artist.name).join(" & ") || data.uploaderName,
-        pic: data.thumbnail.split("=")[0] || data.thumbnails[0].url.split("?")[0],
+        artist: data.author_name.replace(" - Topic", ""),
+        // pic: `${servers.ytimage}/vi/${videoId}/maxresdefault.jpg`,
+        pic: `${servers.wsrv}/?url=i.ytimg.com/vi/${videoId}/maxresdefault.jpg&w=720&h=720&fit=cover`,
     };
 }
 
 // 解析歌词
 function parseLyrics(lyricData) {
-    return (
-        lyricData?.lyric
-            ?.split("\n")
-            .filter(function (line) {
-                return line.trim();
-            })
-            .map(function (line) {
-                const match = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
-                return match
-                    ? {
-                          time: parseInt(match[1], 10) * 60 + parseFloat(match[2]),
-                          text: match[3].trim(),
-                      }
-                    : null;
-            })
-            .filter(Boolean) || []
-    );
+    return lyricData.split("\n").map((line) => {
+        return {
+            text: line,
+            time: null,
+        };
+    });
 }
 
 function bufferToJson(buffer) {
@@ -135,9 +140,11 @@ window.musicApi.getSongInfo = async (id) => {
     }
     const promise = (async () => {
         try {
-            const data = await fetchData(`${servers.virome}/api/songs/${id}`);
-            if (!data.success) return null;
-            const song_info = parseSong({ ...data.song, ...data });
+            // const data = await fetchData(`${servers.virome}/api/songs/${id}`);
+            // if (!data.success) return null;
+            // const song_info = parseSong({ ...data.song, ...data });
+            const data = await fetchData(`${servers.youtube}/oembed?url=https://music.youtube.com/watch?v=${id}`);
+            const song_info = parseSong(data);
             const buffer = jsonToBuffer(song_info);
             if (buffer) {
                 await electronAPI.saveCache(`${id}_info`, buffer);
@@ -153,14 +160,49 @@ window.musicApi.getSongInfo = async (id) => {
 
 // 搜索歌曲
 window.musicApi.search = async (text) => {
-    const data = await fetchData(`${servers.pipied}/search?q=${encodeURIComponent(text)}&filter=music_songs`);
+    // const data = await fetchData(`${servers.pipied}/search?q=${encodeURIComponent(text)}&filter=music_songs`);
     // const data = await fetchData(`${servers.virome}/api/search?filter=songs&q=${encodeURIComponent(text)}`);
-    const songs = data.items;
-    return songs.map((song) => parseSong(song));
+    const data = await fetchData(`${servers.ytmusic}/youtubei/v1/search`, {
+        context: {
+            client: {
+                hl: "en",
+                gl: "US",
+                clientName: "WEB_REMIX",
+                clientVersion: "1.20260630.02.00",
+                platform: "DESKTOP",
+                utcOffsetMinutes: 0,
+            },
+        },
+        query: text,
+        params: "EgWKAQIIAWoSEAQQAxAJEAUQEBAKEBUQERAO",
+    });
+    return data.contents.tabbedSearchResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents[0].musicShelfRenderer.contents.map((song) => song.musicResponsiveListItemRenderer.playlistItemData.videoId);
 };
 
+function isValidAudio(data, mimeType) {
+    if (!mimeType || !mimeType.startsWith("audio/")) {
+        console.warn("Invalid MIME type:", mimeType);
+        return false;
+    }
+    const view = new Uint8Array(data);
+    if ((view.length >= 3 && view[0] === 0x49 && view[1] === 0x44 && view[2] === 0x33) || (view[0] === 0xff && (view[1] & 0xe0) === 0xe0)) {
+        return true;
+    }
+    if (view.length >= 8 && view[4] === 0x66 && view[5] === 0x74 && view[6] === 0x79 && view[7] === 0x70) {
+        return true;
+    }
+    if (view.length >= 4 && view[0] === 0x1a && view[1] === 0x45 && view[2] === 0xdf && view[3] === 0xa3) {
+        return true;
+    }
+    if (view.length >= 4 && view[0] === 0x4f && view[1] === 0x67 && view[2] === 0x67 && view[3] === 0x53) {
+        return true;
+    }
+    console.warn("Unknown audio format, but MIME type is audio/*, accepting.");
+    return true;
+}
+
 // 下载音频文件
-async function fetchAudio(url, retries = 3) {
+async function fetchAudio(url) {
     return enqueueRequest(async () => {
         let lastError;
         for (let i = 0; i < retries; i++) {
@@ -172,8 +214,12 @@ async function fetchAudio(url, retries = 3) {
 
                 const contentType = response.headers.get("content-type") || "audio/mpeg";
                 const arrayBuffer = await response.arrayBuffer();
+                const data = new Uint8Array(arrayBuffer);
+                if (!isValidAudio(data, contentType)) {
+                    throw new Error("Invalid audio data");
+                }
                 return {
-                    data: new Uint8Array(arrayBuffer),
+                    data: data,
                     mimeType: contentType,
                 };
             } catch (error) {
@@ -247,10 +293,6 @@ window.musicApi.getSongUrl = async (id) => {
     const info = song_info || (await window.musicApi.getSongInfo(id));
     if (!info) return null;
 
-    // // 获取音频URL
-    // const mainData = await fetchData(`${servers.virome}/api/stream?id=${id}`);
-    // const audioUrl = mainData.streamingUrls[mainData.streamingUrls.length - 1].directUrl;
-
     let audioUrl = await rfUrl(`${servers.invidious}/companion/latest_version?id=${id}&itag=140`);
 
     if (!audioUrl) {
@@ -308,13 +350,19 @@ window.musicApi.getLyric = async (id) => {
     }
     const promise = (async () => {
         try {
-            const data = await fetchData(`${servers.virome}/lyric?id=${id}`);
-            if (!data) return null;
-            const lyricData = {
-                id,
-                lyrics: parseLyrics(data.lrc),
-                tlyrics: parseLyrics(data.tlyric),
-            };
+            const data = await fetchData(`${servers.lyrics}/v2/youtube/lyrics?trackId=${id}`);
+            let lyricData;
+            if (data.data.lyrics) {
+                lyricData = {
+                    id,
+                    lyrics: parseLyrics(data.data.lyrics),
+                };
+            } else {
+                lyricData = {
+                    id,
+                    lyrics: [],
+                };
+            }
             const buffer = jsonToBuffer(lyricData);
             if (buffer) {
                 await electronAPI.saveCache(`${id}_lyric`, buffer);

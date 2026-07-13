@@ -3,7 +3,7 @@ window.musicApi = window.musicApi || {};
 const servers = {
     invidious: "https://yt.omada.cafe",
     youtube: "https://www.youtube.com",
-    ytmusic: "https://music.youtube.com",
+    piped: "https://api.piped.private.coffee",
     wsrv: "https://wsrv.nl",
     lyrics: "https://lyrics.lewdhutao.my.eu.org",
 };
@@ -160,23 +160,8 @@ window.musicApi.getSongInfo = async (id) => {
 
 // 搜索歌曲
 window.musicApi.search = async (text) => {
-    // const data = await fetchData(`${servers.pipied}/search?q=${encodeURIComponent(text)}&filter=music_songs`);
-    // const data = await fetchData(`${servers.virome}/api/search?filter=songs&q=${encodeURIComponent(text)}`);
-    const data = await fetchData(`${servers.ytmusic}/youtubei/v1/search`, {
-        context: {
-            client: {
-                hl: "en",
-                gl: "US",
-                clientName: "WEB_REMIX",
-                clientVersion: "1.20260630.02.00",
-                platform: "DESKTOP",
-                utcOffsetMinutes: 0,
-            },
-        },
-        query: text,
-        params: "EgWKAQIIAWoSEAQQAxAJEAUQEBAKEBUQERAO",
-    });
-    return data.contents.tabbedSearchResultsRenderer.tabs[0].tabRenderer.content.sectionListRenderer.contents[0].musicShelfRenderer.contents.map((song) => song.musicResponsiveListItemRenderer.playlistItemData.videoId);
+    const data = await fetchData(`${servers.piped}/search?q=${encodeURIComponent(text)}&filter=music_songs`);
+    return data.items.map((song) => song.url.split("=")[1]);
 };
 
 function isValidAudio(data, mimeType) {

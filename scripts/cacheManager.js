@@ -1,5 +1,5 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
 
 /**
  * 缓存管理器
@@ -131,4 +131,4 @@ class CacheManager {
     }
 }
 
-module.exports = CacheManager;
+export default CacheManager;

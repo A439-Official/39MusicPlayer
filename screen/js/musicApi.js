@@ -1,111 +1,22 @@
+function parseIdData(data) {
+    const parts = data.split("|");
+    return {
+        source: parts.length > 1 ? parts[0] : "default",
+        id: parts.length > 1 ? parts[1] : parts[0],
+    };
+}
+
+function buildIdData(sources, id) {
+    return `${sources}|${id}`;
+}
+
 window.musicApi = window.musicApi || {};
-
-const servers = {
-    invidious: "https://yt.omada.cafe",
-    youtube: "https://www.youtube.com",
-    piped: "https://api.piped.private.coffee",
-    wsrv: "https://wsrv.nl",
-    lyrics: "https://lyrics.lewdhutao.my.eu.org",
-};
-
-const retries = 8;
-const MAX = 5;
-let active = 0;
-const queue = [];
-
-const runNext = () => {
-    if (active >= MAX || !queue.length) return;
-
-    const { fn, resolve, reject } = queue.shift();
-    active++;
-
-    Promise.resolve()
-        .then(fn)
-        .then(resolve, reject)
-        .finally(() => {
-            active--;
-            runNext();
-        });
-};
 
 const pendingPromises = {
     songs: {},
     audio: {},
     lyrics: {},
 };
-
-function enqueueRequest(fn) {
-    return new Promise((resolve, reject) => {
-        queue.push({ fn, resolve, reject });
-        runNext();
-    });
-}
-
-async function rfUrl(url) {
-    const res = await fetch(url, {
-        method: "HEAD",
-        redirect: "follow",
-    });
-
-    return res.url;
-}
-
-function fetchData(url, data) {
-    return enqueueRequest(async () => {
-        let lastError;
-        for (let i = 0; i < retries; i++) {
-            try {
-                const options = {
-                    method: data ? "POST" : "GET",
-                    headers: {
-                        "Content-Type": "application/json",
-                    },
-                };
-                if (data) {
-                    options.body = JSON.stringify(data);
-                }
-                const response = await fetch(url, options);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const result = await response.json();
-                return result;
-            } catch (error) {
-                lastError = error;
-                console.warn(`Fetch attempt ${i + 1} failed. Retrying...`);
-                if (i === retries - 1) {
-                    console.error("All fetch retries failed. Last error:", error);
-                    return null;
-                }
-                await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
-            }
-        }
-        console.error("Unexpected error in fetch retry logic", lastError);
-        return null;
-    });
-}
-
-// 解析歌曲信息
-function parseSong(data) {
-    const videoId = data.thumbnail_url.match(/\/vi\/([^/]+)\//)[1];
-    return {
-        id: videoId,
-        name: data.title,
-        artist: data.author_name.replace(" - Topic", ""),
-        // pic: `${servers.ytimage}/vi/${videoId}/maxresdefault.jpg`,
-        pic: `${servers.wsrv}/?url=i.ytimg.com/vi/${videoId}/maxresdefault.jpg&w=720&h=720&fit=cover`,
-    };
-}
-
-// 解析歌词
-function parseLyrics(lyricData) {
-    return lyricData.split("\n").map((line) => {
-        return {
-            text: line,
-            time: null,
-        };
-    });
-}
 
 function bufferToJson(buffer) {
     if (!buffer) return null;
@@ -128,8 +39,82 @@ function jsonToBuffer(obj) {
     }
 }
 
-// 歌曲信息
-window.musicApi.getSongInfo = async (id) => {
+let currentSource = "default";
+let sourceList = [];
+
+async function callScriptWithSource(sourceId, action, params) {
+    const result = await window.electronAPI.scriptRun(sourceId, { action, params });
+    return result;
+}
+
+async function callScript(action, params) {
+    return await callScriptWithSource(currentSource, action, params);
+}
+
+window.musicApi.setSource = (sourceId) => {
+    currentSource = sourceId;
+};
+
+window.musicApi.getCurrentSource = () => {
+    return currentSource;
+};
+
+window.musicApi.getSources = async () => {
+    try {
+        const sources = await window.electronAPI.scriptList();
+        sourceList = sources || [];
+        return sourceList;
+    } catch (e) {
+        console.error("Failed to get sources list:", e);
+        return [];
+    }
+};
+
+window.musicApi.search = async (text) => {
+    const sources = await window.musicApi.getSources();
+    if (!sources.length) {
+        console.warn("No sources available");
+        return [];
+    }
+
+    const sourceIds = sources.map((s) => s.id);
+    const preferredIndex = sourceIds.indexOf(currentSource);
+    const searchOrder = [];
+    if (preferredIndex >= 0) {
+        searchOrder.push(currentSource);
+        sourceIds.forEach((id) => {
+            if (id !== currentSource) searchOrder.push(id);
+        });
+    } else {
+        searchOrder.push(...sourceIds);
+    }
+
+    let lastError = null;
+    for (const sourceId of searchOrder) {
+        try {
+            console.log(`Searching with source: ${sourceId}`);
+            const result = await callScriptWithSource(sourceId, "search", { text });
+            if (result && result.length > 0) {
+                console.log(`Found results with source: ${sourceId}`);
+                return result.map(function (rawId) {
+                    return buildIdData(sourceId, rawId);
+                });
+            }
+            console.log(`No results from source: ${sourceId}`);
+        } catch (e) {
+            lastError = e;
+            console.warn(`Search failed with source ${sourceId}:`, e);
+        }
+    }
+
+    if (lastError) {
+        console.error("All sources failed to search:", lastError);
+    }
+    return [];
+};
+
+window.musicApi.getInfo = async (id) => {
+    const { source: sourceId, id: realId } = parseIdData(id);
     const buffer = await electronAPI.getCache(`${id}_info`);
     if (buffer) {
         const song_info = bufferToJson(buffer);
@@ -140,14 +125,10 @@ window.musicApi.getSongInfo = async (id) => {
     }
     const promise = (async () => {
         try {
-            // const data = await fetchData(`${servers.virome}/api/songs/${id}`);
-            // if (!data.success) return null;
-            // const song_info = parseSong({ ...data.song, ...data });
-            const data = await fetchData(`${servers.youtube}/oembed?url=https://music.youtube.com/watch?v=${id}`);
-            const song_info = parseSong(data);
-            const buffer = jsonToBuffer(song_info);
-            if (buffer) {
-                await electronAPI.saveCache(`${id}_info`, buffer);
+            const song_info = await callScriptWithSource(sourceId, "getInfo", { id: realId });
+            const cacheBuffer = jsonToBuffer(song_info);
+            if (cacheBuffer) {
+                await electronAPI.saveCache(`${id}_info`, cacheBuffer);
             }
             return song_info;
         } finally {
@@ -158,83 +139,33 @@ window.musicApi.getSongInfo = async (id) => {
     return promise;
 };
 
-// 搜索歌曲
-window.musicApi.search = async (text) => {
-    const data = await fetchData(`${servers.piped}/search?q=${encodeURIComponent(text)}&filter=music_songs`);
-    return data.items.map((song) => song.url.split("=")[1]);
-};
-
-function isValidAudio(data, mimeType) {
-    if (!mimeType || !mimeType.startsWith("audio/")) {
-        console.warn("Invalid MIME type:", mimeType);
-        return false;
-    }
-    const view = new Uint8Array(data);
-    if ((view.length >= 3 && view[0] === 0x49 && view[1] === 0x44 && view[2] === 0x33) || (view[0] === 0xff && (view[1] & 0xe0) === 0xe0)) {
-        return true;
-    }
-    if (view.length >= 8 && view[4] === 0x66 && view[5] === 0x74 && view[6] === 0x79 && view[7] === 0x70) {
-        return true;
-    }
-    if (view.length >= 4 && view[0] === 0x1a && view[1] === 0x45 && view[2] === 0xdf && view[3] === 0xa3) {
-        return true;
-    }
-    if (view.length >= 4 && view[0] === 0x4f && view[1] === 0x67 && view[2] === 0x67 && view[3] === 0x53) {
-        return true;
-    }
-    console.warn("Unknown audio format, but MIME type is audio/*, accepting.");
-    return true;
-}
-
-// 下载音频文件
 async function fetchAudio(url) {
-    return enqueueRequest(async () => {
-        let lastError;
-        for (let i = 0; i < retries; i++) {
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const contentType = response.headers.get("content-type") || "audio/mpeg";
-                const arrayBuffer = await response.arrayBuffer();
-                const data = new Uint8Array(arrayBuffer);
-                if (!isValidAudio(data, contentType)) {
-                    throw new Error("Invalid audio data");
-                }
-                return {
-                    data: data,
-                    mimeType: contentType,
-                };
-            } catch (error) {
-                lastError = error;
-                console.warn(`Audio download attempt ${i + 1} failed. Retrying...`);
-                if (i === retries - 1) {
-                    console.error("All audio download retries failed. Last error:", error);
-                    return null;
-                }
-                await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
+    let lastError;
+    for (let i = 0; i < 8; i++) {
+        try {
+            const response = await fetch(url);
+            if (!response.ok) {
+                throw new Error(`HTTP error! status: ${response.status}`);
             }
+
+            const contentType = response.headers.get("content-type") || "audio/mpeg";
+            const arrayBuffer = await response.arrayBuffer();
+            const data = new Uint8Array(arrayBuffer);
+            return {
+                data: data,
+                mimeType: contentType,
+            };
+        } catch (error) {
+            lastError = error;
+            console.warn(`Audio download attempt ${i + 1} failed. Retrying...`);
+            if (i === 7) {
+                console.error("All audio download retries failed. Last error:", error);
+                return null;
+            }
+            await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
         }
-        console.error("Unexpected error in audio download retry logic", lastError);
-        return null;
-    });
-}
-
-// blobURL管理
-const blobUrlCache = new Map();
-
-function createBlobUrl(audioData, mimeType) {
-    const blob = new Blob([audioData], { type: mimeType });
-    const blobUrl = URL.createObjectURL(blob);
-    return blobUrl;
-}
-
-function revokeBlobUrl(blobUrl) {
-    if (blobUrl && blobUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(blobUrl);
     }
+    return null;
 }
 
 async function downloadAndCacheAudio(id, audioUrl) {
@@ -255,11 +186,10 @@ async function downloadAndCacheAudio(id, audioUrl) {
     }
 }
 
-// 获取歌曲URL
-window.musicApi.getSongUrl = async (id) => {
+window.musicApi.getUrl = async (id) => {
+    const { source: sourceId, id: realId } = parseIdData(id);
     const cacheKey = `${id}_audio`;
 
-    // 检查缓存
     const audioBuffer = await electronAPI.getCache(cacheKey);
     if (audioBuffer) {
         const mimeTypeBuffer = await electronAPI.getCache(`${cacheKey}_mime`);
@@ -272,29 +202,28 @@ window.musicApi.getSongUrl = async (id) => {
         return { id, url: blobUrl, fromCache: true };
     }
 
-    // 获取歌曲信息
-    const buffer = await electronAPI.getCache(`${id}_info`);
-    let song_info = buffer ? bufferToJson(buffer) : null;
-    const info = song_info || (await window.musicApi.getSongInfo(id));
-    if (!info) return null;
+    const result = await callScriptWithSource(sourceId, "getUrl", { id: realId });
+    if (!result) return null;
 
-    let audioUrl = await rfUrl(`${servers.invidious}/companion/latest_version?id=${id}&itag=140`);
+    downloadAndCacheAudio(id, result);
 
-    if (!audioUrl) {
-        return null;
-    }
-
-    const audioUrlData = new URL(audioUrl);
-
-    audioUrlData.searchParams.set("host", encodeURIComponent(audioUrlData.host));
-
-    audioUrl = `${servers.invidious}/companion/videoplayback${audioUrlData.search}`;
-
-    downloadAndCacheAudio(id, audioUrl);
-    return { id, url: audioUrl, fromCache: false };
+    return { id, url: result, fromCache: false };
 };
 
-// 清理blobURL
+const blobUrlCache = new Map();
+
+function createBlobUrl(audioData, mimeType) {
+    const blob = new Blob([audioData], { type: mimeType });
+    const blobUrl = URL.createObjectURL(blob);
+    return blobUrl;
+}
+
+function revokeBlobUrl(blobUrl) {
+    if (blobUrl && blobUrl.startsWith("blob:")) {
+        URL.revokeObjectURL(blobUrl);
+    }
+}
+
 window.musicApi.revokeBlobUrl = (id) => {
     if (blobUrlCache.has(id)) {
         revokeBlobUrl(blobUrlCache.get(id));
@@ -302,7 +231,6 @@ window.musicApi.revokeBlobUrl = (id) => {
     }
 };
 
-// 清理所有blobURL
 window.musicApi.revokeAllBlobUrls = () => {
     for (const blobUrl of blobUrlCache.values()) {
         revokeBlobUrl(blobUrl);
@@ -323,8 +251,8 @@ if (typeof window !== "undefined") {
     });
 }
 
-// 获取歌词
 window.musicApi.getLyric = async (id) => {
+    const { source: sourceId, id: realId } = parseIdData(id);
     const buffer = await electronAPI.getCache(`${id}_lyric`);
     if (buffer) {
         const lyricData = bufferToJson(buffer);
@@ -335,22 +263,10 @@ window.musicApi.getLyric = async (id) => {
     }
     const promise = (async () => {
         try {
-            const data = await fetchData(`${servers.lyrics}/v2/youtube/lyrics?trackId=${id}`);
-            let lyricData;
-            if (data.data.lyrics) {
-                lyricData = {
-                    id,
-                    lyrics: parseLyrics(data.data.lyrics),
-                };
-            } else {
-                lyricData = {
-                    id,
-                    lyrics: [],
-                };
-            }
-            const buffer = jsonToBuffer(lyricData);
-            if (buffer) {
-                await electronAPI.saveCache(`${id}_lyric`, buffer);
+            const lyricData = await callScriptWithSource(sourceId, "getLyric", { id: realId });
+            const cacheBuffer = jsonToBuffer(lyricData);
+            if (cacheBuffer) {
+                await electronAPI.saveCache(`${id}_lyric`, cacheBuffer);
             }
             return lyricData;
         } finally {

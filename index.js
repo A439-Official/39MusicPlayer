@@ -1,10 +1,15 @@
-const { app, BrowserWindow, Menu, MenuItem, session, protocol } = require("electron");
-const path = require("node:path");
-const ConfigManager = require("./scripts/configManager");
-const { registerProtocolHandler } = require("./scripts/protocolHandler");
-const { registerIPC } = require("./scripts/ipcHandler");
-const { createTray } = require("./scripts/trayManager");
-const AutoUpdater = require("./scripts/autoUpdater");
+import { app, BrowserWindow, Menu, MenuItem, session, protocol } from "electron";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import ConfigManager from "./scripts/configManager.js";
+import { registerProtocolHandler } from "./scripts/protocolHandler.js";
+import { registerIPC } from "./scripts/ipcHandler.js";
+import { createTray } from "./scripts/trayManager.js";
+import { setupAutoUpdater } from "./scripts/autoUpdater.js";
+import Logger from "./scripts/logger.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const APP_NAME = "39MusicPlayer";
 
@@ -49,7 +54,7 @@ function createWindow() {
     initShortcuts();
 
     mainWindow.loadFile(path.join(__dirname, "screen/index.html")).catch((err) => {
-        console.error("Failed to load index.html:", err);
+        Logger.error("Failed to load index.html:", err);
     });
 
     mainWindow.on("close", (event) => {
@@ -113,7 +118,7 @@ function initShortcuts() {
 
 function initializeApp() {
     session.defaultSession.setCertificateVerifyProc((request, callback) => {
-        console.log("skip SSL verification for", request.hostname);
+        Logger.info("skip SSL verification for", request.hostname);
         callback(0);
     });
 
@@ -125,7 +130,7 @@ function initializeApp() {
     createWindow();
     tray = createTray(app, focus);
 
-    AutoUpdater.setupAutoUpdater(mainWindow, configManager);
+    setupAutoUpdater(mainWindow, configManager);
 }
 
 if (!appLock) {
@@ -158,15 +163,15 @@ if (!appLock) {
     app.on("window-all-closed", () => {});
 
     app.on("before-quit", () => {
-        console.log("Application is quitting...");
+        Logger.info("Application is quitting...");
         app.isQuitting = true;
     });
 
     process.on("uncaughtException", (error) => {
-        console.error("Uncaught Exception:", error);
+        Logger.error("Uncaught Exception:", error);
     });
 
     process.on("unhandledRejection", (reason, promise) => {
-        console.error("Unhandled Rejection at:", promise, "reason:", reason);
+        Logger.error("Unhandled Rejection at:", promise, "reason:", reason);
     });
 }

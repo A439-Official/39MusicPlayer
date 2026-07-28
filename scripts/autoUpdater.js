@@ -1,8 +1,11 @@
-const { autoUpdater } = require("electron-updater");
+import autoUpdaterModule from "electron-updater";
+import Logger from "./logger.js";
+
+const { autoUpdater } = autoUpdaterModule;
 
 function send(win, channel, data) {
     const msg = `[autoUpdater:${channel}]`;
-    console.log(msg, data);
+    Logger.info(msg, data);
     if (!win || win.isDestroyed?.()) return;
     win.webContents?.send(channel, data);
 }
@@ -23,7 +26,7 @@ function registerUpdaterEvents(win) {
     });
 
     autoUpdater.on("error", (error) => {
-        console.error("[autoUpdater] error:", error);
+        Logger.error("[autoUpdater] error:", error);
         send(win, "update-error", {
             message: error?.message || String(error),
             stack: error?.stack,
@@ -42,16 +45,16 @@ function setupAutoUpdater(win, configManager) {
 }
 
 async function checkForUpdates() {
+    if (!autoUpdater) {
+        Logger.warn("[autoUpdater] autoUpdater is not available, cannot check for updates");
+        return null;
+    }
     try {
         return await autoUpdater.checkForUpdatesAndNotify();
     } catch (err) {
-        console.error("[autoUpdater] check failed:", err);
+        Logger.error("[autoUpdater] check failed:", err);
         throw err;
     }
 }
 
-module.exports = {
-    autoUpdater,
-    setupAutoUpdater,
-    checkForUpdates,
-};
+export { autoUpdater, setupAutoUpdater, checkForUpdates };

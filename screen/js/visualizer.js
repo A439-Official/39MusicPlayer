@@ -1,7 +1,6 @@
 let enableVisualizer = true;
 
 function initVisualizer() {
-    // 确保currentAudio存在
     if (typeof currentAudio === "undefined") {
         console.warn("Audio element not found");
         return;
@@ -181,6 +180,6 @@ function initVisualizer() {
 
     window.resetSpectrogram = function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        frameHistory = []; // 清空历史帧
+        frameHistory = [];
     };
 }

@@ -1,12 +1,12 @@
-const { protocol, net } = require("electron");
-const path = require("node:path");
-const fs = require("node:fs");
-const url = require("node:url");
+import { protocol, net } from "electron";
+import path from "node:path";
+import fs from "node:fs";
+import url from "node:url";
+import Logger from "./logger.js";
 
 function registerProtocolHandler(app) {
     protocol.handle("res", async (request) => {
         try {
-            console.log(request.url);
             let filePath = decodeURIComponent(request.url.slice("res://".length));
             filePath = filePath.replace(/\//g, path.sep);
 
@@ -20,16 +20,14 @@ function registerProtocolHandler(app) {
                 const resolvedPath = path.resolve(absolutePath);
                 return net.fetch(url.pathToFileURL(resolvedPath).toString());
             } catch (error) {
-                console.error(`Failed to fetch file: ${absolutePath}`, error);
+                Logger.error(`Failed to fetch file: ${absolutePath}`, error);
                 return new Response("File not found", { status: 404 });
             }
         } catch (error) {
-            console.error("Protocol handler error:", error);
+            Logger.error("Protocol handler error:", error);
             return new Response("Internal Server Error", { status: 500 });
         }
     });
 }
 
-module.exports = {
-    registerProtocolHandler,
-};
+export { registerProtocolHandler };

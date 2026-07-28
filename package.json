@@ -3,6 +3,7 @@
     "version": "0.8.0-alpha",
     "description": "",
     "main": "index.js",
+    "type": "module",
     "scripts": {
         "start": "electron .",
         "build": "electron-builder",
@@ -46,6 +47,13 @@
             ],
             "requestedExecutionLevel": "asInvoker",
             "icon": "resources/icon.ico"
+        },
+        "linux": {
+            "target": [
+                "AppImage"
+            ],
+            "category": "Audio",
+            "icon": "resources/icon.png"
         },
         "nsis": {
             "oneClick": false,

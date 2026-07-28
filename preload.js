@@ -1,7 +1,7 @@
-const { contextBridge, ipcRenderer } = require("electron");
-const CryptoJS = require("crypto-js");
-const puppeteer = require("puppeteer");
-const marked = require("marked");
+import { contextBridge, ipcRenderer } from "electron";
+import CryptoJS from "crypto-js";
+import puppeteer from "puppeteer";
+import * as marked from "marked";
 
 contextBridge.exposeInMainWorld("electronAPI", {
     getConfig: (key, defaultValue) => ipcRenderer.invoke("get-config", key, defaultValue),
@@ -21,6 +21,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getCache: (cachePath) => ipcRenderer.invoke("get-cache", cachePath),
     saveCache: (cachePath, data) => ipcRenderer.invoke("save-cache", cachePath, data),
     clearCache: () => ipcRenderer.send("clear-cache"),
+
+    scriptRun: (id, params) => ipcRenderer.invoke("script-run", id, params),
+    scriptList: () => ipcRenderer.invoke("script-list"),
+    scriptGetMeta: (id) => ipcRenderer.invoke("script-get-meta", id),
+    scriptReloadAll: () => ipcRenderer.invoke("script-reload-all"),
+
+    log: (level, ...args) => ipcRenderer.send("log", level, ...args),
 });
 
 contextBridge.exposeInMainWorld("hash", {

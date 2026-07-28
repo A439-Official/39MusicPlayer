@@ -81,7 +81,7 @@ async function playSong(songId, play = true) {
         updateInterval = null;
     }
 
-    const songData = await window.musicApi.getSongUrl(songId);
+    const songData = await window.musicApi.getUrl(songId);
     if (currentSongId !== songId || !songData?.url) {
         if (!songData?.url) {
             console.error("Failed to get song URL:", songData);
@@ -89,7 +89,7 @@ async function playSong(songId, play = true) {
         return;
     }
 
-    const songInfo = await window.musicApi.getSongInfo(songId);
+    const songInfo = await window.musicApi.getInfo(songId);
     if (currentSongId === songId) {
         const titleEl = document.getElementsByClassName("data-title");
         for (const el of titleEl) {

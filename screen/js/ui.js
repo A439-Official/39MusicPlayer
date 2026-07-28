@@ -18,7 +18,7 @@ function createSongItem(songId, menuItems) {
     artist.textContent = "";
     infoDiv.append(title, artist);
 
-    window.musicApi.getSongInfo(songId).then((songInfo) => {
+    window.musicApi.getInfo(songId).then((songInfo) => {
         if (!songInfo) return;
         title.textContent = songInfo.name || songId;
         artist.textContent = Array.isArray(songInfo.artist) ? songInfo.artist.join(" & ") : songInfo.artist || "";

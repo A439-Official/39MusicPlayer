@@ -1,6 +1,6 @@
-const fs = require("fs");
-const path = require("path");
-const { app } = require("electron");
+import fs from "fs";
+import path from "path";
+import { app } from "electron";
 
 class ConfigManager {
     constructor(appName) {
@@ -114,4 +114,4 @@ class ConfigManager {
     }
 }
 
-module.exports = ConfigManager;
+export default ConfigManager;

@@ -1,9 +1,21 @@
-const { ipcMain, shell } = require("electron");
-const CacheManager = require("./cacheManager");
-const { checkForUpdates, autoUpdater } = require("./autoUpdater");
+import { ipcMain, shell } from "electron";
+import path from "path";
+import { fileURLToPath } from "node:url";
+import CacheManager from "./cacheManager.js";
+import ScriptLoader from "./scriptLoader.js";
+import { checkForUpdates, autoUpdater } from "./autoUpdater.js";
+import Logger from "./logger.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 function registerIPC(app, configManager) {
     const cacheManager = new CacheManager(configManager);
+
+    const scriptLoader = new ScriptLoader();
+
+    const sourcesDir = path.join(__dirname, "..", "sources");
+    const scriptsLoadedPromise = scriptLoader.loadFromDir(sourcesDir).catch(console.error);
 
     ipcMain.on("quit", (event) => {
         app.quit();
@@ -34,16 +46,29 @@ function registerIPC(app, configManager) {
         return await cacheManager.clearCache();
     });
 
-    ipcMain.on("send-lyrics", (event, data) => {
-        if (lyricsWindow) {
-            lyricsWindow.webContents.send("lyrics", data);
-        }
+    // 执行脚本
+    ipcMain.handle("script-run", async (event, id, params) => {
+        await scriptsLoadedPromise;
+        return await scriptLoader.run(id, "run", params);
     });
 
-    ipcMain.on("send-time", (event, songTime, sendTime) => {
-        if (lyricsWindow) {
-            lyricsWindow.webContents.send("time", songTime, sendTime);
+    // 获取脚本列表
+    ipcMain.handle("script-list", async () => {
+        return scriptLoader.list();
+    });
+
+    // 获取脚本元信息
+    ipcMain.handle("script-get-meta", async (event, id) => {
+        return scriptLoader.getMeta(id);
+    });
+
+    // 重新加载所有脚本
+    ipcMain.handle("script-reload-all", async () => {
+        for (const { id } of scriptLoader.list()) {
+            scriptLoader.unload(id);
         }
+        await scriptLoader.loadFromDir(sourcesDir);
+        return scriptLoader.list();
     });
 
     ipcMain.on("open-external", (event, url) => {
@@ -53,8 +78,10 @@ function registerIPC(app, configManager) {
     ipcMain.on("check-for-updates", async () => {
         return await checkForUpdates();
     });
+
+    ipcMain.on("log", (event, level, ...args) => {
+        Logger[level](...args);
+    });
 }
 
-module.exports = {
-    registerIPC,
-};
+export { registerIPC };

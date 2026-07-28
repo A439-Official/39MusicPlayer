@@ -9,6 +9,10 @@ function switchToPlayerTab() {
 }
 
 document.addEventListener("DOMContentLoaded", async () => {
+    console.log = (...args) => window.electronAPI.log("info", ...args);
+    console.error = (...args) => window.electronAPI.log("error", ...args);
+    console.warn = (...args) => window.electronAPI.log("warn", ...args);
+
     // Tab switching
     const tabs = document.querySelectorAll(".tab-title");
     tabs.forEach((tab) => {

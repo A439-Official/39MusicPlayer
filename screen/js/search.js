@@ -15,7 +15,7 @@ function initSearch() {
         try {
             return await window.musicApi.search(q);
         } catch (e) {
-            console.error("Search error:", e);
+            console.error("搜索错误:", e);
             return [];
         }
     };

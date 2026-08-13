@@ -19,6 +19,7 @@
         "Menu": "菜单",
         "No more results": "没有更多结果了",
         "Loading": "加载中...",
-        "Search Source": "优先搜索音源"
+        "Search Source": "优先搜索音源",
+        "Allow Prerelease": "允许预览版"
     }
 }

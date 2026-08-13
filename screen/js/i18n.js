@@ -10,7 +10,7 @@ async function loadLanguages() {
         }
         languages = await response.json();
     } catch (error) {
-        console.error("Failed to load languages:", error);
+        console.error("加载语言文件失败:", error);
         languages = {};
     }
 }
@@ -77,7 +77,7 @@ async function loadLanguage(langCode) {
     try {
         await window.electronAPI.setConfig("language", langCode);
     } catch (e) {
-        console.warn("Failed to save language to config:", e);
+        console.warn("保存语言设置到配置失败:", e);
     }
 
     translations();
@@ -117,7 +117,7 @@ async function initI18n() {
         const savedLanguage = await window.electronAPI.getConfig("language", "English");
         await loadLanguage(savedLanguage);
     } catch (e) {
-        console.warn("Failed to load saved language:", e);
+        console.warn("加载已保存的语言设置失败:", e);
         await loadLanguage("English");
     }
 }

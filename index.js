@@ -31,12 +31,13 @@ function focus() {
 }
 
 function createWindow() {
+    const appVersion = app.getVersion();
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 720,
         minWidth: 840,
         minHeight: 560,
-        title: APP_NAME,
+        title: `${APP_NAME} v${appVersion}`,
         icon: path.join(__dirname, "resources/icon.png"),
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
@@ -54,7 +55,7 @@ function createWindow() {
     initShortcuts();
 
     mainWindow.loadFile(path.join(__dirname, "screen/index.html")).catch((err) => {
-        Logger.error("Failed to load index.html:", err);
+        Logger.error("加载 index.html 失败:", err);
     });
 
     mainWindow.on("close", (event) => {
@@ -118,7 +119,7 @@ function initShortcuts() {
 
 function initializeApp() {
     session.defaultSession.setCertificateVerifyProc((request, callback) => {
-        Logger.info("skip SSL verification for", request.hostname);
+        Logger.info("跳过 SSL 验证:", request.hostname);
         callback(0);
     });
 
@@ -163,15 +164,15 @@ if (!appLock) {
     app.on("window-all-closed", () => {});
 
     app.on("before-quit", () => {
-        Logger.info("Application is quitting...");
+        Logger.info("应用程序正在退出...");
         app.isQuitting = true;
     });
 
     process.on("uncaughtException", (error) => {
-        Logger.error("Uncaught Exception:", error);
+        Logger.error("未捕获的异常:", error);
     });
 
     process.on("unhandledRejection", (reason, promise) => {
-        Logger.error("Unhandled Rejection at:", promise, "reason:", reason);
+        Logger.error("未处理的 Promise 拒绝，位置:", promise, "原因:", reason);
     });
 }

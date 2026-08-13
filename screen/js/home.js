@@ -9,7 +9,7 @@ async function initHomePage() {
         const releases = await fetchReleases();
         renderReleases(container, releases);
     } catch (err) {
-        console.error("Failed to fetch releases:", err);
+        console.error("获取发布版本失败:", err);
 
         container.innerHTML = `
             <div class="error">

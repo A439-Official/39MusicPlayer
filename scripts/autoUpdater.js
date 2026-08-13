@@ -26,7 +26,7 @@ function registerUpdaterEvents(win) {
     });
 
     autoUpdater.on("error", (error) => {
-        Logger.error("[autoUpdater] error:", error);
+        Logger.error("[autoUpdater] 错误:", error);
         send(win, "update-error", {
             message: error?.message || String(error),
             stack: error?.stack,
@@ -46,13 +46,13 @@ function setupAutoUpdater(win, configManager) {
 
 async function checkForUpdates() {
     if (!autoUpdater) {
-        Logger.warn("[autoUpdater] autoUpdater is not available, cannot check for updates");
+        Logger.warn("[autoUpdater] autoUpdater 不可用，无法检查更新");
         return null;
     }
     try {
         return await autoUpdater.checkForUpdatesAndNotify();
     } catch (err) {
-        Logger.error("[autoUpdater] check failed:", err);
+        Logger.error("[autoUpdater] 检查更新失败:", err);
         throw err;
     }
 }

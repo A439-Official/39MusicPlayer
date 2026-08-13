@@ -64,12 +64,18 @@
             "installerIcon": "resources/icon.ico",
             "uninstallerIcon": "resources/icon.ico",
             "installerHeaderIcon": "resources/icon.ico"
-        }
+        },
+        "files": [
+            "index.js",
+            "preload.js",
+            "scripts/**/*",
+            "screen/**/*",
+            "package.json",
+            "resources/**/*"
+        ]
     },
     "dependencies": {
-        "crypto-js": "^4.2.0",
         "electron-updater": "^6.8.3",
-        "marked": "^18.0.5",
-        "puppeteer": "^25.0.4"
+        "marked": "^18.0.5"
     }
 }

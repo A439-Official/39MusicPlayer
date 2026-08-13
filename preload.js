@@ -1,6 +1,4 @@
 import { contextBridge, ipcRenderer } from "electron";
-import CryptoJS from "crypto-js";
-import puppeteer from "puppeteer";
 import * as marked from "marked";
 
 contextBridge.exposeInMainWorld("electronAPI", {
@@ -16,10 +14,13 @@ contextBridge.exposeInMainWorld("electronAPI", {
 
     checkForUpdates: () => ipcRenderer.send("check-for-updates"),
     onUpdateStatus: (callback) => ipcRenderer.on("update-status", callback),
+    onUpdateNotAvailable: (callback) => ipcRenderer.on("update-not-available", callback),
+    onUpdateAvailable: (callback) => ipcRenderer.on("update-available", callback),
     onUpdateError: (callback) => ipcRenderer.on("update-error", callback),
 
     getCache: (cachePath) => ipcRenderer.invoke("get-cache", cachePath),
     saveCache: (cachePath, data) => ipcRenderer.invoke("save-cache", cachePath, data),
+    deleteCache: (cachePath) => ipcRenderer.invoke("delete-cache", cachePath),
     clearCache: () => ipcRenderer.send("clear-cache"),
 
     scriptRun: (id, params) => ipcRenderer.invoke("script-run", id, params),
@@ -28,10 +29,6 @@ contextBridge.exposeInMainWorld("electronAPI", {
     scriptReloadAll: () => ipcRenderer.invoke("script-reload-all"),
 
     log: (level, ...args) => ipcRenderer.send("log", level, ...args),
-});
-
-contextBridge.exposeInMainWorld("hash", {
-    md5: (str) => CryptoJS.enc.Hex.stringify(CryptoJS.MD5(str)),
 });
 
 contextBridge.exposeInMainWorld("marked", {

@@ -155,6 +155,35 @@ async function handleCreatePlaylist() {
     showModal(inputEl);
 }
 
+async function resolveAllPlaylistIds() {
+    let changed = false;
+
+    for (const playlist of playlistState.playlists) {
+        const resolved = [];
+        for (const songId of playlist.songs) {
+            if (!songId.includes("|")) {
+                try {
+                    const resolvedId = await window.musicApi.resolveId(songId);
+                    if (resolvedId !== songId) {
+                        resolved.push(resolvedId);
+                        changed = true;
+                        continue;
+                    }
+                } catch {}
+            }
+            resolved.push(songId);
+        }
+        if (changed) {
+            playlist.songs = resolved;
+        }
+    }
+
+    if (changed) {
+        await savePlaylists();
+        updatePlaylistUI();
+    }
+}
+
 async function initPlaylist() {
     await getPlaylists();
 
@@ -162,11 +191,10 @@ async function initPlaylist() {
 
     document.getElementById("prev-btn")?.addEventListener("click", playPrev);
     document.getElementById("next-btn")?.addEventListener("click", playNext);
-    if (typeof currentAudio !== "undefined") {
-        currentAudio.addEventListener("ended", playNext);
-    }
 
     document.getElementById("create-playlist-btn")?.addEventListener("click", handleCreatePlaylist);
+
+    resolveAllPlaylistIds();
 }
 
 async function addToPlaylist(songId) {

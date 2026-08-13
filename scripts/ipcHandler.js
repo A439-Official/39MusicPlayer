@@ -1,3 +1,4 @@
+import fs from "fs";
 import { ipcMain, shell } from "electron";
 import path from "path";
 import { fileURLToPath } from "node:url";
@@ -14,7 +15,8 @@ function registerIPC(app, configManager) {
 
     const scriptLoader = new ScriptLoader();
 
-    const sourcesDir = path.join(__dirname, "..", "sources");
+    const sourcesDir = path.join(configManager.getConfigDir(), "sources");
+    fs.mkdirSync(sourcesDir, { recursive: true });
     const scriptsLoadedPromise = scriptLoader.loadFromDir(sourcesDir).catch(console.error);
 
     ipcMain.on("quit", (event) => {
@@ -39,6 +41,11 @@ function registerIPC(app, configManager) {
     // 保存缓存
     ipcMain.handle("save-cache", async (event, cachePath, data) => {
         return await cacheManager.saveCache(cachePath, data);
+    });
+
+    // 删除指定缓存
+    ipcMain.handle("delete-cache", async (event, cachePath) => {
+        return await cacheManager.deleteCache(cachePath);
     });
 
     // 清空缓存
@@ -75,8 +82,18 @@ function registerIPC(app, configManager) {
         shell.openExternal(url);
     });
 
-    ipcMain.on("check-for-updates", async () => {
-        return await checkForUpdates();
+    ipcMain.on("check-for-updates", async (event) => {
+        try {
+            return await checkForUpdates();
+        } catch (err) {
+            Logger.error("[ipcHandler] 检查更新失败:", err);
+            if (event.sender && !event.sender.isDestroyed()) {
+                event.sender.send("update-error", {
+                    message: err?.message || String(err),
+                    stack: err?.stack,
+                });
+            }
+        }
     });
 
     ipcMain.on("log", (event, level, ...args) => {

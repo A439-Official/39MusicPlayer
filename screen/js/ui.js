@@ -8,6 +8,11 @@ function createSongItem(songId, menuItems) {
         playSongl(songId);
     });
 
+    const cover = document.createElement("img");
+    cover.className = "song-item-cover";
+    cover.alt = "";
+    cover.src = "";
+
     const infoDiv = document.createElement("div");
     infoDiv.className = "song-item-info";
     const title = document.createElement("div");
@@ -22,6 +27,9 @@ function createSongItem(songId, menuItems) {
         if (!songInfo) return;
         title.textContent = songInfo.name || songId;
         artist.textContent = Array.isArray(songInfo.artist) ? songInfo.artist.join(" & ") : songInfo.artist || "";
+        if (songInfo.pic) {
+            cover.src = songInfo.pic;
+        }
     });
 
     const menuWrapper = document.createElement("div");
@@ -44,7 +52,7 @@ function createSongItem(songId, menuItems) {
         if (label) label.textContent = "⋮";
         if (arrow) arrow.style.display = "none";
     }
-    item.append(infoDiv, menuWrapper);
+    item.append(cover, infoDiv, menuWrapper);
     return item;
 }
 

@@ -1,278 +1,276 @@
-function parseIdData(data) {
-    const parts = data.split("|");
-    return {
-        source: parts.length > 1 ? parts[0] : "default",
-        id: parts.length > 1 ? parts[1] : parts[0],
-    };
-}
-
-function buildIdData(sources, id) {
-    return `${sources}|${id}`;
-}
-
 window.musicApi = window.musicApi || {};
 
-const pendingPromises = {
-    songs: {},
-    audio: {},
-    lyrics: {},
-};
+let currentSource = "";
+const pending = {};
+const blobUrls = new Map();
+const resolvedIds = new Map();
 
-function bufferToJson(buffer) {
-    if (!buffer) return null;
+function parseId(data) {
+    const [source = "", id] = data.includes("|") ? data.split("|") : ["", data];
+
+    return { source, id };
+}
+
+function makeId(source, id) {
+    return `${source}|${id}`;
+}
+
+function jsonBuffer(data) {
     try {
-        const text = new TextDecoder().decode(buffer);
-        return JSON.parse(text);
-    } catch (error) {
-        console.error("Failed to parse cache data:", error);
+        return new TextEncoder().encode(JSON.stringify(data));
+    } catch {
         return null;
     }
 }
 
-function jsonToBuffer(obj) {
+function bufferJson(buffer) {
     try {
-        const text = JSON.stringify(obj);
-        return new TextEncoder().encode(text);
-    } catch (error) {
-        console.error("Failed to serialize cache data:", error);
+        return buffer && JSON.parse(new TextDecoder().decode(buffer));
+    } catch {
         return null;
     }
 }
 
-let currentSource = "default";
-let sourceList = [];
-
-async function callScriptWithSource(sourceId, action, params) {
-    const result = await window.electronAPI.scriptRun(sourceId, { action, params });
-    return result;
+async function run(source, action, params) {
+    if (!source) return null;
+    return window.electronAPI.scriptRun(source, {
+        action,
+        params,
+    });
 }
 
-async function callScript(action, params) {
-    return await callScriptWithSource(currentSource, action, params);
+async function cacheGet(key) {
+    return bufferJson(await electronAPI.getCache(key));
 }
 
-window.musicApi.setSource = (sourceId) => {
-    currentSource = sourceId;
+async function cacheSet(key, data) {
+    const buffer = jsonBuffer(data);
+    if (buffer) await electronAPI.saveCache(key, buffer);
+}
+
+async function resolveId(id) {
+    const { source } = parseId(id);
+    if (source) return id;
+
+    if (resolvedIds.has(id)) return resolvedIds.get(id);
+
+    const sources = await window.musicApi.getSources();
+    for (const s of sources) {
+        try {
+            const result = await run(s.id, "getInfo", { id });
+            if (result && result.name) {
+                const resolved = makeId(s.id, id);
+                resolvedIds.set(id, resolved);
+                return resolved;
+            }
+        } catch {}
+    }
+
+    resolvedIds.set(id, id);
+    return id;
+}
+
+async function cachedRequest(type, id, action) {
+    const resolvedId = await resolveId(id);
+    const key = `${resolvedId}_${type}.json`;
+
+    const cache = await cacheGet(key);
+    if (cache) return cache;
+
+    if (pending[key]) return pending[key];
+
+    pending[key] = (async () => {
+        try {
+            const { source, id: realId } = parseId(resolvedId);
+
+            const result = await run(source, action, {
+                id: realId,
+            });
+
+            await cacheSet(key, result);
+
+            return result;
+        } finally {
+            delete pending[key];
+        }
+    })();
+
+    return pending[key];
+}
+
+window.musicApi.setSource = (source) => {
+    currentSource = source;
 };
 
-window.musicApi.getCurrentSource = () => {
-    return currentSource;
-};
+window.musicApi.getCurrentSource = () => currentSource;
 
 window.musicApi.getSources = async () => {
     try {
-        const sources = await window.electronAPI.scriptList();
-        sourceList = sources || [];
-        return sourceList;
-    } catch (e) {
-        console.error("Failed to get sources list:", e);
+        return (await window.electronAPI.scriptList()) || [];
+    } catch {
         return [];
     }
 };
 
 window.musicApi.search = async (text) => {
     const sources = await window.musicApi.getSources();
-    if (!sources.length) {
-        console.warn("No sources available");
-        return [];
-    }
 
-    const sourceIds = sources.map((s) => s.id);
-    const preferredIndex = sourceIds.indexOf(currentSource);
-    const searchOrder = [];
-    if (preferredIndex >= 0) {
-        searchOrder.push(currentSource);
-        sourceIds.forEach((id) => {
-            if (id !== currentSource) searchOrder.push(id);
-        });
-    } else {
-        searchOrder.push(...sourceIds);
-    }
+    const ids = sources.map((x) => x.id);
 
-    let lastError = null;
-    for (const sourceId of searchOrder) {
+    const order = [currentSource, ...ids.filter((x) => x !== currentSource)];
+
+    for (const source of order) {
         try {
-            console.log(`Searching with source: ${sourceId}`);
-            const result = await callScriptWithSource(sourceId, "search", { text });
-            if (result && result.length > 0) {
-                console.log(`Found results with source: ${sourceId}`);
-                return result.map(function (rawId) {
-                    return buildIdData(sourceId, rawId);
-                });
+            const result = await run(source, "search", { text });
+
+            if (result?.length) {
+                return result.map((id) => makeId(source, id));
             }
-            console.log(`No results from source: ${sourceId}`);
-        } catch (e) {
-            lastError = e;
-            console.warn(`Search failed with source ${sourceId}:`, e);
-        }
+        } catch {}
     }
 
-    if (lastError) {
-        console.error("All sources failed to search:", lastError);
-    }
     return [];
 };
 
 window.musicApi.getInfo = async (id) => {
-    const { source: sourceId, id: realId } = parseIdData(id);
-    const buffer = await electronAPI.getCache(`${id}_info`);
-    if (buffer) {
-        const song_info = bufferToJson(buffer);
-        if (song_info) return song_info;
+    const info = await cachedRequest("info", id, "getInfo");
+    if (!info || !info.pic) return info;
+
+    const resolvedId = await resolveId(id);
+    const coverKey = `${resolvedId}_cover.png`;
+
+    const cache = await electronAPI.getCache(coverKey);
+    if (cache) {
+        const url = URL.createObjectURL(new Blob([cache], { type: "image/png" }));
+        blobUrls.set(`${resolvedId}_cover`, url);
+        info.pic = url;
+        return info;
     }
-    if (pendingPromises.songs[id]) {
-        return pendingPromises.songs[id];
-    }
-    const promise = (async () => {
-        try {
-            const song_info = await callScriptWithSource(sourceId, "getInfo", { id: realId });
-            const cacheBuffer = jsonToBuffer(song_info);
-            if (cacheBuffer) {
-                await electronAPI.saveCache(`${id}_info`, cacheBuffer);
-            }
-            return song_info;
-        } finally {
-            delete pendingPromises.songs[id];
+
+    // 后台缓存封面
+    const picUrl = info.pic;
+    (async () => {
+        const data = await fetchImage(picUrl);
+        if (data) {
+            await electronAPI.saveCache(coverKey, data);
         }
     })();
-    pendingPromises.songs[id] = promise;
-    return promise;
+
+    return info;
 };
 
+window.musicApi.getLyric = (id) => cachedRequest("lyric", id, "getLyric");
+
 async function fetchAudio(url) {
-    let lastError;
     for (let i = 0; i < 8; i++) {
         try {
-            const response = await fetch(url);
-            if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+            const res = await fetch(url);
+            if (!res.ok) throw Error(res.status);
+
+            const contentType = res.headers.get("content-type");
+            if (!contentType?.startsWith("audio/")) {
+                throw new Error("非音频 MIME");
             }
 
-            const contentType = response.headers.get("content-type") || "audio/mpeg";
-            const arrayBuffer = await response.arrayBuffer();
-            const data = new Uint8Array(arrayBuffer);
+            const arrayBuffer = await res.arrayBuffer();
+
             return {
-                data: data,
-                mimeType: contentType,
+                data: new Uint8Array(arrayBuffer),
+                mime: contentType,
             };
-        } catch (error) {
-            lastError = error;
-            console.warn(`Audio download attempt ${i + 1} failed. Retrying...`);
-            if (i === 7) {
-                console.error("All audio download retries failed. Last error:", error);
-                return null;
-            }
-            await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
+        } catch (e) {
+            console.error("音频下载失败:", e);
+            if (i === 7) return null;
+            await new Promise((r) => setTimeout(r, (i + 1) * 1000));
         }
     }
-    return null;
 }
 
-async function downloadAndCacheAudio(id, audioUrl) {
-    const cacheKey = `${id}_audio`;
-    if (pendingPromises.audio[id]) return;
-    pendingPromises.audio[id] = true;
+async function fetchImage(url) {
+    for (let i = 0; i < 8; i++) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw Error(res.status);
 
-    try {
-        const audioResult = await fetchAudio(audioUrl);
-        if (audioResult?.data) {
-            await electronAPI.saveCache(cacheKey, audioResult.data);
-            const mimeTypeBuffer = new TextEncoder().encode(audioResult.mimeType);
-            await electronAPI.saveCache(`${cacheKey}_mime`, mimeTypeBuffer);
+            const arrayBuffer = await res.arrayBuffer();
+            return new Uint8Array(arrayBuffer);
+        } catch (e) {
+            console.error("图片下载失败:", e);
+            if (i === 7) return null;
+            await new Promise((r) => setTimeout(r, (i + 1) * 1000));
         }
-    } catch (error) {
-    } finally {
-        delete pendingPromises.audio[id];
     }
 }
 
 window.musicApi.getUrl = async (id) => {
-    const { source: sourceId, id: realId } = parseIdData(id);
-    const cacheKey = `${id}_audio`;
+    const resolvedId = await resolveId(id);
+    const audioKey = `${resolvedId}.mp3`;
 
-    const audioBuffer = await electronAPI.getCache(cacheKey);
-    if (audioBuffer) {
-        const mimeTypeBuffer = await electronAPI.getCache(`${cacheKey}_mime`);
-        const mimeType = mimeTypeBuffer ? new TextDecoder().decode(mimeTypeBuffer) : "audio/mpeg";
-        const blobUrl = createBlobUrl(audioBuffer, mimeType);
-        if (blobUrlCache.has(id)) {
-            revokeBlobUrl(blobUrlCache.get(id));
-        }
-        blobUrlCache.set(id, blobUrl);
-        return { id, url: blobUrl, fromCache: true };
+    const cache = await electronAPI.getCache(audioKey);
+
+    if (cache) {
+        const url = URL.createObjectURL(new Blob([cache], { type: "audio/mpeg" }));
+
+        blobUrls.set(resolvedId, url);
+
+        return {
+            id: resolvedId,
+            url,
+            fromCache: true,
+        };
     }
 
-    const result = await callScriptWithSource(sourceId, "getUrl", { id: realId });
-    if (!result) return null;
+    const { source, id: realId } = parseId(resolvedId);
 
-    downloadAndCacheAudio(id, result);
+    const url = await run(source, "getUrl", { id: realId });
 
-    return { id, url: result, fromCache: false };
+    if (!url) return null;
+
+    // 后台缓存
+    (async () => {
+        console.log("开始缓存:", id);
+        const audio = await fetchAudio(url);
+        console.log("缓存完成:", id);
+
+        if (audio) {
+            await electronAPI.saveCache(audioKey, audio.data);
+        } else {
+            console.log("缓存失败:", id);
+        }
+    })();
+
+    return {
+        id: resolvedId,
+        url,
+        fromCache: false,
+    };
 };
 
-const blobUrlCache = new Map();
+window.musicApi.deleteAudioCache = async (id) => {
+    const resolvedId = await resolveId(id);
+    const audioKey = `${resolvedId}.mp3`;
+    const coverKey = `${resolvedId}_cover.png`;
 
-function createBlobUrl(audioData, mimeType) {
-    const blob = new Blob([audioData], { type: mimeType });
-    const blobUrl = URL.createObjectURL(blob);
-    return blobUrl;
-}
+    window.musicApi.revokeBlobUrl(resolvedId);
+    window.musicApi.revokeBlobUrl(`${resolvedId}_cover`);
 
-function revokeBlobUrl(blobUrl) {
-    if (blobUrl && blobUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(blobUrl);
-    }
-}
+    await electronAPI.deleteCache(audioKey);
+    await electronAPI.deleteCache(coverKey);
+};
 
 window.musicApi.revokeBlobUrl = (id) => {
-    if (blobUrlCache.has(id)) {
-        revokeBlobUrl(blobUrlCache.get(id));
-        blobUrlCache.delete(id);
+    const url = blobUrls.get(id);
+
+    if (url) {
+        URL.revokeObjectURL(url);
+        blobUrls.delete(id);
     }
 };
 
 window.musicApi.revokeAllBlobUrls = () => {
-    for (const blobUrl of blobUrlCache.values()) {
-        revokeBlobUrl(blobUrl);
-    }
-    blobUrlCache.clear();
+    for (const url of blobUrls.values()) URL.revokeObjectURL(url);
+
+    blobUrls.clear();
 };
 
-if (typeof window !== "undefined") {
-    window.addEventListener("beforeunload", () => {
-        if (window.musicApi && window.musicApi.revokeAllBlobUrls) {
-            window.musicApi.revokeAllBlobUrls();
-        }
-    });
-    window.addEventListener("pagehide", () => {
-        if (window.musicApi && window.musicApi.revokeAllBlobUrls) {
-            window.musicApi.revokeAllBlobUrls();
-        }
-    });
-}
-
-window.musicApi.getLyric = async (id) => {
-    const { source: sourceId, id: realId } = parseIdData(id);
-    const buffer = await electronAPI.getCache(`${id}_lyric`);
-    if (buffer) {
-        const lyricData = bufferToJson(buffer);
-        if (lyricData) return lyricData;
-    }
-    if (pendingPromises.lyrics[id]) {
-        return pendingPromises.lyrics[id];
-    }
-    const promise = (async () => {
-        try {
-            const lyricData = await callScriptWithSource(sourceId, "getLyric", { id: realId });
-            const cacheBuffer = jsonToBuffer(lyricData);
-            if (cacheBuffer) {
-                await electronAPI.saveCache(`${id}_lyric`, cacheBuffer);
-            }
-            return lyricData;
-        } finally {
-            delete pendingPromises.lyrics[id];
-        }
-    })();
-    pendingPromises.lyrics[id] = promise;
-    return promise;
-};
+window.addEventListener("beforeunload", () => window.musicApi.revokeAllBlobUrls());

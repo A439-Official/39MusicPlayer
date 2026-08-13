@@ -20,11 +20,11 @@ function registerProtocolHandler(app) {
                 const resolvedPath = path.resolve(absolutePath);
                 return net.fetch(url.pathToFileURL(resolvedPath).toString());
             } catch (error) {
-                Logger.error(`Failed to fetch file: ${absolutePath}`, error);
+                Logger.error(`获取文件失败: ${absolutePath}`, error);
                 return new Response("File not found", { status: 404 });
             }
         } catch (error) {
-            Logger.error("Protocol handler error:", error);
+            Logger.error("协议处理器错误:", error);
             return new Response("Internal Server Error", { status: 500 });
         }
     });

@@ -2,7 +2,7 @@ let enableVisualizer = true;
 
 function initVisualizer() {
     if (typeof currentAudio === "undefined") {
-        console.warn("Audio element not found");
+        console.warn("未找到音频元素");
         return;
     }
 
@@ -41,7 +41,7 @@ function initVisualizer() {
 
         if (audioCtx && audioCtx.state !== "closed") {
             audioCtx.close().catch((e) => {
-                console.warn("Failed to close AudioContext:", e);
+                console.warn("关闭 AudioContext 失败:", e);
             });
             audioCtx = null;
         }

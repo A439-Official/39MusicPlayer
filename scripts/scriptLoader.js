@@ -58,7 +58,7 @@ class ScriptLoader {
 
         this.plugins.set(id, plugin);
 
-        Logger.info(`Loaded plugin ${id}`);
+        Logger.info(`已加载插件 ${id}`);
 
         return plugin.meta;
     }

@@ -10,14 +10,30 @@ async function setupOptions() {
             window.electronAPI.checkForUpdates();
         });
 
-        window.electronAPI.onUpdateStatus((msg) => {
+        window.electronAPI.onUpdateStatus((_event, data) => {
             checkUpdateBtn.disabled = false;
-            checkUpdateBtn.textContent = msg.message || msg;
+            checkUpdateBtn.textContent = data?.message || data || "Check";
         });
 
-        window.electronAPI.onUpdateError((msg) => {
+        window.electronAPI.onUpdateNotAvailable((_event, data) => {
             checkUpdateBtn.disabled = false;
-            checkUpdateBtn.textContent = `Error: ${msg.message || msg}`;
+            checkUpdateBtn.textContent = data?.message || data || "Check";
+            setTimeout(() => {
+                checkUpdateBtn.textContent = "Check";
+            }, 3000);
+        });
+
+        window.electronAPI.onUpdateAvailable((_event, data) => {
+            checkUpdateBtn.disabled = false;
+            checkUpdateBtn.textContent = data?.message || data || "Check";
+            setTimeout(() => {
+                checkUpdateBtn.textContent = "Check";
+            }, 3000);
+        });
+
+        window.electronAPI.onUpdateError((_event, data) => {
+            checkUpdateBtn.disabled = false;
+            checkUpdateBtn.textContent = `Error: ${data?.message || data || "Unknown error"}`;
             setTimeout(() => {
                 checkUpdateBtn.textContent = "Check";
             }, 3000);
@@ -32,6 +48,16 @@ async function setupOptions() {
             new ToggleSwitch(visualizerToggleContainer, enabled, (enabled) => {
                 window.electronAPI.setConfig("visualizer.enabled", enabled);
                 enableVisualizer = enabled;
+            });
+        });
+    }
+
+    // 添加允许预览版开关
+    const prereleaseToggleContainer = document.getElementById("prerelease-toggle-container");
+    if (prereleaseToggleContainer) {
+        window.electronAPI.getConfig("update.allowPrerelease", false).then((allowPrerelease) => {
+            new ToggleSwitch(prereleaseToggleContainer, allowPrerelease, (enabled) => {
+                window.electronAPI.setConfig("update.allowPrerelease", enabled);
             });
         });
     }
@@ -51,10 +77,18 @@ async function initSourceSelector() {
         const sourceNames = sources.map((s) => s.name);
         const sourceIds = sources.map((s) => s.id);
 
-        const savedSource = await window.electronAPI.getConfig("searchSource", "default");
-        const currentIndex = sourceIds.indexOf(savedSource);
+        let savedSource = await window.electronAPI.getConfig("searchSource", sourceIds[0]);
+        let currentIndex = sourceIds.indexOf(savedSource);
 
-        const validSource = currentIndex >= 0 ? savedSource : "default";
+        // 如果保存的源无效，回退到第一个可用源
+        if (currentIndex < 0) {
+            savedSource = sourceIds[0];
+            currentIndex = 0;
+            // 更新配置为有效的源ID
+            window.electronAPI.setConfig("searchSource", savedSource);
+        }
+
+        const validSource = savedSource;
         window.musicApi.setSource(validSource);
 
         if (sourceSelectCustom) {
@@ -69,6 +103,6 @@ async function initSourceSelector() {
             });
         }
     } catch (e) {
-        console.error("Failed to initialize source selector:", e);
+        console.error("初始化音源选择器失败:", e);
     }
 }

@@ -8,6 +8,7 @@ class ScriptLoader {
     constructor(utils = {}) {
         this.utils = {
             fetchJson: async (url) => {
+                Logger.info(`访问 ${url}`);
                 const response = await net.fetch(url, {
                     method: "GET",
                     headers: { "Content-Type": "application/json" },
@@ -18,6 +19,7 @@ class ScriptLoader {
                 return await response.json();
             },
             fetchRedirect: async (url) => {
+                Logger.info(`访问 ${url}`);
                 return new Promise((resolve, reject) => {
                     let finalUrl = url;
                     const request = net.request(url);

@@ -235,11 +235,11 @@
     padding: 2vh;
     font-size: 2vh;
     color: var(--text-2);
-    transition: font-size 0.3s ease;
+    /* transition: font-size 0.3s ease; */
 }
 
 .lyric-line.active {
     color: var(--text-1);
     font-weight: bold;
-    font-size: 2.5vh;
+    /* font-size: 2.5vh; */
 }

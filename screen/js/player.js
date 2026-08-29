@@ -87,12 +87,12 @@ async function playSong(songId, play = true) {
     }
 
     let songData = null;
-    for (let retry = 0; retry < 3; retry++) {
+    for (let retry = 0; retry < 8; retry++) {
         songData = await window.musicApi.getUrl(songId);
         if (songData?.url) break;
-        if (retry < 2) {
-            console.warn(`获取歌曲 URL 失败，正在重试 (${retry + 1}/3):`, songId);
-            await new Promise(r => setTimeout(r, 1000));
+        if (retry < 7) {
+            console.warn(`获取歌曲 URL 失败，正在重试 (${retry + 1}/8):`, songId);
+            await new Promise((r) => setTimeout(r, 1000));
         }
     }
     if (currentSongId !== songId || !songData?.url) {
@@ -155,7 +155,7 @@ async function playSong(songId, play = true) {
             currentAudio.pause();
             currentAudio.src = "";
             currentAudio.load();
-            await new Promise(r => setTimeout(r, 1000));
+            await new Promise((r) => setTimeout(r, 1000));
             currentAudio.src = songData.url;
             currentAudio.load();
         }

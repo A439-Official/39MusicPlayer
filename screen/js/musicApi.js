@@ -2,6 +2,7 @@ window.musicApi = window.musicApi || {};
 
 let currentSource = "";
 const pending = {};
+const pendingAudioCache = {};
 const blobUrls = new Map();
 const resolvedIds = new Map();
 
@@ -164,7 +165,11 @@ window.musicApi.getLyric = (id) => cachedRequest("lyric", id, "getLyric");
 async function fetchAudio(url) {
     for (let i = 0; i < 8; i++) {
         try {
-            const res = await fetch(url);
+            const res = await fetch(url, {
+                headers: {
+                    Range: "bytes=0-",
+                },
+            });
             if (!res.ok) throw Error(res.status);
 
             const contentType = res.headers.get("content-type");
@@ -227,7 +232,14 @@ window.musicApi.getUrl = async (id) => {
     if (!url) return null;
 
     // 后台缓存
-    (async () => {
+    if (pendingAudioCache[audioKey]) {
+        return {
+            id: resolvedId,
+            url,
+            fromCache: false,
+        };
+    }
+    pendingAudioCache[audioKey] = (async () => {
         console.log("开始缓存:", id);
         const audio = await fetchAudio(url);
         console.log("缓存完成:", id);
@@ -237,6 +249,7 @@ window.musicApi.getUrl = async (id) => {
         } else {
             console.log("缓存失败:", id);
         }
+        delete pendingAudioCache[audioKey];
     })();
 
     return {

@@ -1,7 +1,8 @@
-document.addEventListener("DOMContentLoaded", function () {
-    // 确保currentAudio存在
+let enableVisualizer = true;
+
+function initVisualizer() {
     if (typeof currentAudio === "undefined") {
-        console.warn("Audio element not found");
+        console.warn("未找到音频元素");
         return;
     }
 
@@ -40,7 +41,7 @@ document.addEventListener("DOMContentLoaded", function () {
 
         if (audioCtx && audioCtx.state !== "closed") {
             audioCtx.close().catch((e) => {
-                console.warn("Failed to close AudioContext:", e);
+                console.warn("关闭 AudioContext 失败:", e);
             });
             audioCtx = null;
         }
@@ -103,6 +104,9 @@ document.addEventListener("DOMContentLoaded", function () {
         canvas.height = canvas.offsetHeight;
 
         ctx.clearRect(0, 0, canvas.width, canvas.height);
+
+        if (!enableVisualizer) return;
+
         const frame = avgFrame;
         const minDecibels = analyser.minDecibels;
         const maxDecibels = analyser.maxDecibels;
@@ -176,6 +180,6 @@ document.addEventListener("DOMContentLoaded", function () {
 
     window.resetSpectrogram = function () {
         ctx.clearRect(0, 0, canvas.width, canvas.height);
-        frameHistory = []; // 清空历史帧
+        frameHistory = [];
     };
-});
+}

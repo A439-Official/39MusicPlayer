@@ -1,8 +1,9 @@
 {
     "name": "39musicplayer",
-    "version": "1.0.0",
+    "version": "0.8.0-alpha.0",
     "description": "",
     "main": "index.js",
+    "type": "module",
     "scripts": {
         "start": "electron .",
         "build": "electron-builder",
@@ -23,23 +24,36 @@
         "electron-builder": "^26.8.1"
     },
     "build": {
-        "appId": "com.a439.39musicplayer",
+        "appId": "xyz.a439.39musicplayer",
         "productName": "39MusicPlayer",
         "directories": {
             "output": "dist"
         },
+        "publish": [
+            {
+                "provider": "github",
+                "owner": "A439-Official",
+                "repo": "39MusicPlayer"
+            }
+        ],
         "win": {
             "target": [
                 {
                     "target": "nsis",
                     "arch": [
-                        "x64",
-                        "ia32"
+                        "x64"
                     ]
                 }
             ],
             "requestedExecutionLevel": "asInvoker",
             "icon": "resources/icon.ico"
+        },
+        "linux": {
+            "target": [
+                "AppImage"
+            ],
+            "category": "Audio",
+            "icon": "resources/icon.png"
         },
         "nsis": {
             "oneClick": false,
@@ -50,11 +64,18 @@
             "installerIcon": "resources/icon.ico",
             "uninstallerIcon": "resources/icon.ico",
             "installerHeaderIcon": "resources/icon.ico"
-        }
+        },
+        "files": [
+            "index.js",
+            "preload.js",
+            "scripts/**/*",
+            "screen/**/*",
+            "package.json",
+            "resources/**/*"
+        ]
     },
     "dependencies": {
-        "crypto-js": "^4.2.0",
         "electron-updater": "^6.8.3",
-        "puppeteer": "^25.0.4"
+        "marked": "^18.0.5"
     }
 }

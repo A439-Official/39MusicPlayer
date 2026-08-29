@@ -172,7 +172,7 @@ class ToggleSwitch {
 }
 
 class CustomProgressBar {
-    constructor(container, initialValue = 0, onChange = null) {
+    constructor(container, initialValue = 0, onChange = null, vertical = false) {
         if (!container || !(container instanceof HTMLElement)) {
             throw new Error("CustomProgressBar: 需要有效的容器DOM元素");
         }
@@ -180,6 +180,7 @@ class CustomProgressBar {
         this._value = Math.min(1, Math.max(0, initialValue));
         this.onChange = onChange;
         this.isDragging = false;
+        this.vertical = vertical;
 
         // 事件处理器绑定
         this._boundMouseMove = this._onMouseMove.bind(this);
@@ -203,21 +204,31 @@ class CustomProgressBar {
     }
 
     _updateFillWidth() {
-        if (this.fillElement) {
+        if (!this.fillElement) return;
+        if (this.vertical) {
+            this.fillElement.style.height = `${this._value * 100}%`;
+            this.fillElement.style.width = "100%";
+        } else {
             this.fillElement.style.width = `${this._value * 100}%`;
+            this.fillElement.style.height = "100%";
         }
     }
 
-    _calculateValueFromEvent(clientX) {
+    _calculateValueFromEvent(clientX, clientY) {
         const rect = this.container.getBoundingClientRect();
-        if (rect.width <= 0) return this._value;
-        let relativeX = clientX - rect.left;
-        relativeX = Math.min(rect.width, Math.max(0, relativeX));
-        return relativeX / rect.width;
+        if (this.vertical) {
+            let relativeY = rect.bottom - clientY;
+            relativeY = Math.min(rect.height, Math.max(0, relativeY));
+            return relativeY / rect.height;
+        } else {
+            let relativeX = clientX - rect.left;
+            relativeX = Math.min(rect.width, Math.max(0, relativeX));
+            return relativeX / rect.width;
+        }
     }
 
-    _updateValueFromEvent(clientX) {
-        const newValue = this._calculateValueFromEvent(clientX);
+    _updateValueFromEvent(clientX, clientY) {
+        const newValue = this._calculateValueFromEvent(clientX, clientY);
         if (Math.abs(newValue - this._value) > 0.0001) {
             this.setValue(newValue);
         }
@@ -226,7 +237,7 @@ class CustomProgressBar {
     _onMouseDown(e) {
         e.preventDefault();
         this.isDragging = true;
-        this._updateValueFromEvent(e.clientX);
+        this._updateValueFromEvent(e.clientX, e.clientY);
         window.addEventListener("mousemove", this._boundMouseMove);
         window.addEventListener("mouseup", this._boundMouseUp);
         this.container.style.cursor = "grabbing";
@@ -235,7 +246,7 @@ class CustomProgressBar {
     _onMouseMove(e) {
         if (!this.isDragging) return;
         e.preventDefault();
-        this._updateValueFromEvent(e.clientX);
+        this._updateValueFromEvent(e.clientX, e.clientY);
     }
 
     _onMouseUp() {
@@ -251,7 +262,7 @@ class CustomProgressBar {
         const touch = e.touches[0];
         if (!touch) return;
         this.isDragging = true;
-        this._updateValueFromEvent(touch.clientX);
+        this._updateValueFromEvent(touch.clientX, touch.clientY);
         window.addEventListener("touchmove", this._boundTouchMove, { passive: false });
         window.addEventListener("touchend", this._boundTouchEnd);
         window.addEventListener("touchcancel", this._boundTouchEnd);
@@ -261,7 +272,7 @@ class CustomProgressBar {
         if (!this.isDragging) return;
         e.preventDefault();
         const touch = e.touches[0];
-        if (touch) this._updateValueFromEvent(touch.clientX);
+        if (touch) this._updateValueFromEvent(touch.clientX, touch.clientY);
     }
 
     _onTouchEnd() {
@@ -290,4 +301,77 @@ class CustomProgressBar {
     getValue() {
         return this._value;
     }
+}
+
+class DropdownMenu {
+    static currentOpenInstance = null;
+
+    constructor(container, items, title = "Menu", onItemClick = null) {
+        if (!container?.nodeType === 1) throw new Error("需要有效的容器元素");
+
+        this.container = container;
+        this.items = items.map((item) => (typeof item === "string" ? { label: item, value: item } : item));
+        this.title = title;
+        this.onItemClick = onItemClick;
+        this.isOpen = false;
+
+        container.className = "dropdown-menu";
+        container.innerHTML = `
+      <div class="dropdown-trigger">
+        <span class="label">${title}</span>
+        <span class="arrow">▼</span>
+      </div>
+      <ul class="dropdown-options">
+        ${this.items.map((item, i) => `<li class="dropdown-option" data-index="${i}">${item.label}</li>`).join("")}
+      </ul>
+    `;
+
+        this.trigger = container.querySelector(".dropdown-trigger");
+        this.optionsList = container.querySelector(".dropdown-options");
+        this.trigger.addEventListener("click", this.handleTriggerClick);
+        this.optionsList.addEventListener("click", this.handleOptionClick);
+    }
+
+    handleTriggerClick = (e) => {
+        e.stopPropagation();
+        this.toggle();
+    };
+
+    handleOptionClick = (e) => {
+        const option = e.target.closest(".dropdown-option");
+        if (!option) return;
+        const index = parseInt(option.dataset.index, 10);
+        this.onItemClick?.(this.items[index], index);
+        this.close();
+        e.stopPropagation();
+    };
+
+    toggle = () => (this.isOpen ? this.close() : this.open());
+
+    open = () => {
+        if (DropdownMenu.currentOpenInstance && DropdownMenu.currentOpenInstance !== this) {
+            DropdownMenu.currentOpenInstance.close();
+        }
+        this.isOpen = true;
+        this.container.classList.add("open");
+        DropdownMenu.currentOpenInstance = this;
+        document.addEventListener("click", this.close); // 直接引用 close
+    };
+
+    close = () => {
+        if (!this.isOpen) return;
+        this.isOpen = false;
+        this.container.classList.remove("open");
+        if (DropdownMenu.currentOpenInstance === this) DropdownMenu.currentOpenInstance = null;
+        document.removeEventListener("click", this.close);
+    };
+
+    // 对外方法
+    setTitle = (newTitle) => {
+        this.title = newTitle;
+        const label = this.trigger?.querySelector(".label");
+        if (label) label.textContent = newTitle;
+    };
+
+    getItems = () => this.items.slice();
 }

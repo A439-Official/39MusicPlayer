@@ -8,11 +8,42 @@ let totalTimeEl = null;
 let loadedMetadataHandler = null;
 let errorHandler = null;
 let endedHandler = null;
+let playbackErrorHandler = null;
 let currentLyrics = [];
 let currentLyricIndex = -1;
 let lyricsContainer = null;
 let lyricsLines = null;
 let currentAudioDuration = 0;
+
+function setupMediaSession() {
+    if (!("mediaSession" in navigator)) return;
+
+    navigator.mediaSession.setActionHandler("play", () => {
+        window.togglePause(document.getElementById("pause-btn"));
+    });
+
+    navigator.mediaSession.setActionHandler("pause", () => {
+        window.togglePause(document.getElementById("pause-btn"));
+    });
+
+    navigator.mediaSession.setActionHandler("previoustrack", () => {
+        if (window.playPrev) {
+            window.playPrev();
+        }
+    });
+
+    navigator.mediaSession.setActionHandler("nexttrack", () => {
+        if (window.playNext) {
+            window.playNext();
+        }
+    });
+
+    navigator.mediaSession.setActionHandler("seekto", (details) => {
+        if (details.seekTime != null) {
+            currentAudio.currentTime = details.seekTime;
+        }
+    });
+}
 
 function cleanupCurrentBlobUrl() {
     if (currentBlobUrl && currentBlobUrl.startsWith("blob:")) {
@@ -25,10 +56,10 @@ function cleanupCurrentBlobUrl() {
 }
 
 async function playSong(songId, play = true) {
+    console.log("播放歌曲", songId);
     cleanupCurrentBlobUrl();
     currentSongId = songId;
 
-    // 移除之前的事件监听器
     if (loadedMetadataHandler) {
         currentAudio.removeEventListener("loadedmetadata", loadedMetadataHandler);
         loadedMetadataHandler = null;
@@ -42,6 +73,10 @@ async function playSong(songId, play = true) {
         currentAudio.removeEventListener("ended", endedHandler);
         endedHandler = null;
     }
+    if (playbackErrorHandler) {
+        currentAudio.removeEventListener("error", playbackErrorHandler);
+        playbackErrorHandler = null;
+    }
 
     currentAudio.pause();
     currentAudio.src = "";
@@ -51,15 +86,23 @@ async function playSong(songId, play = true) {
         updateInterval = null;
     }
 
-    const songData = await window.musicApi.getSongUrl(songId);
+    let songData = null;
+    for (let retry = 0; retry < 8; retry++) {
+        songData = await window.musicApi.getUrl(songId);
+        if (songData?.url) break;
+        if (retry < 7) {
+            console.warn(`获取歌曲 URL 失败，正在重试 (${retry + 1}/8):`, songId);
+            await new Promise((r) => setTimeout(r, 1000));
+        }
+    }
     if (currentSongId !== songId || !songData?.url) {
         if (!songData?.url) {
-            console.error("Failed to get song URL:", songData);
+            console.error("获取歌曲 URL 失败:", songData);
         }
         return;
     }
 
-    const songInfo = await window.musicApi.getSongInfo(songId);
+    const songInfo = await window.musicApi.getInfo(songId);
     if (currentSongId === songId) {
         const titleEl = document.getElementsByClassName("data-title");
         for (const el of titleEl) {
@@ -72,18 +115,29 @@ async function playSong(songId, play = true) {
         }
         const coverEl = document.getElementsByClassName("data-cover");
         for (const el of coverEl) {
-            if (el.tagName === "IMG") {
-                el.src = songInfo?.pic || "";
-            } else {
-                el.style.backgroundImage = songInfo?.pic ? `url("${songInfo.pic}")` : "";
-            }
+            el.style.backgroundImage = songInfo?.pic ? `url("${songInfo.pic}")` : "";
+        }
+
+        if ("mediaSession" in navigator) {
+            navigator.mediaSession.metadata = new MediaMetadata({
+                title: songInfo?.name || "",
+                artist: Array.isArray(songInfo?.artist) ? songInfo.artist.join(" & ") : songInfo?.artist || "",
+                album: songInfo?.album || "",
+                artwork: [
+                    {
+                        src: songInfo?.pic || "",
+                        sizes: "512x512",
+                        type: "image/png",
+                    },
+                ],
+            });
         }
     }
 
     try {
-        await addToPlayHistory(songId);
+        await addSongToPlaylist(songId, "History");
     } catch (error) {
-        console.error("Failed to add song to play history:", error);
+        console.error("添加歌曲到播放历史失败:", error);
     }
 
     currentAudio.src = songData.url;
@@ -94,35 +148,61 @@ async function playSong(songId, play = true) {
     currentAudio.load();
     setupSeekBar();
 
-    await new Promise((resolve, reject) => {
-        loadedMetadataHandler = function onLoadedMetadata() {
-            currentAudio.removeEventListener("loadedmetadata", loadedMetadataHandler);
-            currentAudio.removeEventListener("error", errorHandler);
-            const fixedDuration = Math.floor(currentAudio.duration);
-            if (totalTimeEl) {
-                totalTimeEl.textContent = formatTime(fixedDuration);
+    let metadataLoaded = false;
+    for (let retry = 0; retry < 3; retry++) {
+        if (retry > 0) {
+            console.warn(`音频元数据加载失败，正在重试 (${retry + 1}/3):`, songId);
+            currentAudio.pause();
+            currentAudio.src = "";
+            currentAudio.load();
+            await new Promise((r) => setTimeout(r, 1000));
+            currentAudio.src = songData.url;
+            currentAudio.load();
+        }
+        try {
+            await new Promise((resolve, reject) => {
+                loadedMetadataHandler = function onLoadedMetadata() {
+                    currentAudio.removeEventListener("loadedmetadata", loadedMetadataHandler);
+                    currentAudio.removeEventListener("error", errorHandler);
+                    const fixedDuration = Math.floor(currentAudio.duration);
+                    if (totalTimeEl) {
+                        totalTimeEl.textContent = formatTime(fixedDuration);
+                    }
+                    currentAudioDuration = fixedDuration;
+                    if (seekBar) {
+                        seekBar.setValue(0, true);
+                    }
+                    if (currentTimeEl) {
+                        currentTimeEl.textContent = formatTime(0);
+                    }
+                    loadedMetadataHandler = null;
+                    errorHandler = null;
+                    resolve();
+                };
+                errorHandler = function onError(e) {
+                    currentAudio.removeEventListener("loadedmetadata", loadedMetadataHandler);
+                    currentAudio.removeEventListener("error", errorHandler);
+                    loadedMetadataHandler = null;
+                    errorHandler = null;
+                    console.error("音频元数据加载失败:", e);
+                    reject(new Error("加载音频元数据失败"));
+                };
+                currentAudio.addEventListener("loadedmetadata", loadedMetadataHandler);
+                currentAudio.addEventListener("error", errorHandler);
+            });
+            metadataLoaded = true;
+            break;
+        } catch (error) {
+            console.error("音频元数据加载失败:", error);
+            if (currentSongId !== songId) {
+                return;
             }
-            currentAudioDuration = fixedDuration;
-            if (seekBar) {
-                seekBar.setValue(0, true);
-            }
-            if (currentTimeEl) {
-                currentTimeEl.textContent = formatTime(0);
-            }
-            loadedMetadataHandler = null;
-            errorHandler = null;
-            resolve();
-        };
-        errorHandler = function onError(e) {
-            currentAudio.removeEventListener("loadedmetadata", loadedMetadataHandler);
-            currentAudio.removeEventListener("error", errorHandler);
-            loadedMetadataHandler = null;
-            errorHandler = null;
-            reject(new Error("Failed to load audio metadata"));
-        };
-        currentAudio.addEventListener("loadedmetadata", loadedMetadataHandler);
-        currentAudio.addEventListener("error", errorHandler);
-    });
+        }
+    }
+    if (!metadataLoaded) {
+        console.error("音频元数据加载失败，已重试 3 次:", songId);
+        return;
+    }
 
     loadLyrics(songId);
 
@@ -140,7 +220,7 @@ async function playSong(songId, play = true) {
                 };
             }
         } catch (error) {
-            console.error("Failed to play audio:", error);
+            console.error("播放音频失败:", error);
         }
     }
 
@@ -149,22 +229,60 @@ async function playSong(songId, play = true) {
             await window.electronAPI.setConfig("lastPlayedSongId", songId);
         }
     } catch (error) {
-        console.error("Failed to save last played song ID:", error);
+        console.error("保存上次播放歌曲 ID 失败:", error);
     }
 
     currentAudio.removeEventListener("timeupdate", updateSeekBar);
-    const seekUpdateInterval = setInterval(updateSeekBar, 10);
+    if (updateInterval) {
+        clearInterval(updateInterval);
+    }
+    updateInterval = setInterval(updateSeekBar, 10);
     endedHandler = function () {
-        clearInterval(seekUpdateInterval);
+        console.log("播放下一首");
+        clearInterval(updateInterval);
+        updateInterval = null;
         if (window.playNext && typeof window.playNext === "function") {
             try {
                 window.playNext();
             } catch (err) {
-                console.error("Error calling playNext in ended handler:", err);
+                console.error("播放结束后调用 playNext 出错:", err);
             }
         }
     };
     currentAudio.addEventListener("ended", endedHandler);
+
+    playbackErrorHandler = function onPlaybackError() {
+        const audioError = currentAudio.error;
+        const errorMsg = audioError ? audioError.message || `MEDIA_ERR_${audioError.code}` : "unknown";
+        console.error("音频播放错误:", errorMsg);
+
+        clearInterval(updateInterval);
+        updateInterval = null;
+
+        const pauseBtn = document.getElementById("pause-btn");
+        if (pauseBtn) {
+            pauseBtn.innerHTML = `
+                <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
+            `;
+        }
+
+        if (errorMsg.includes("DECODE") || errorMsg.includes("decode") || audioError?.code === MediaError.MEDIA_ERR_DECODE) {
+            console.warn("检测到解码错误，音频缓存可能已损坏，将清除缓存并重新加载:", currentSongId);
+            if (currentSongId && window.musicApi && window.musicApi.deleteAudioCache) {
+                window.musicApi
+                    .deleteAudioCache(currentSongId)
+                    .then(() => {
+                        if (currentSongId) {
+                            playSong(currentSongId, true);
+                        }
+                    })
+                    .catch((err) => {
+                        console.error("清除缓存失败:", err);
+                    });
+            }
+        }
+    };
+    currentAudio.addEventListener("error", playbackErrorHandler);
 }
 
 async function loadLastPlayedSong() {
@@ -173,10 +291,12 @@ async function loadLastPlayedSong() {
             const lastSongId = await window.electronAPI.getConfig("lastPlayedSongId", null);
             if (lastSongId) {
                 await playSong(lastSongId, false);
+            } else {
+                console.log("没有上次播放的歌曲记录");
             }
         }
     } catch (error) {
-        console.error("Failed to load last played song:", error);
+        console.error("加载上次播放歌曲失败:", error);
     }
 }
 
@@ -198,7 +318,7 @@ function setupSeekBar() {
                             try {
                                 window.playNext();
                             } catch (err) {
-                                console.error("Error calling playNext:", err);
+                                console.error("调用 playNext 出错:", err);
                             }
                         }
                     }
@@ -252,28 +372,48 @@ function formatTime(seconds) {
 
 function togglePause(buttonElement) {
     if (!buttonElement) {
-        console.error("Button element not found!");
+        buttonElement = document.getElementById("pause-btn");
+        if (!buttonElement) {
+            console.error("未找到按钮元素!");
+            return;
+        }
+    }
+
+    if (!currentAudio) {
+        console.log("没有音频元素");
         return;
     }
 
-    if (!currentAudio || !currentAudio.src) {
-        console.log("No audio to play/pause");
+    if (currentAudio.error) {
+        console.warn("音频处于错误状态，正在尝试重新加载当前歌曲:", currentAudio.error.message || currentAudio.error.code);
+        if (currentSongId) {
+            playSong(currentSongId, true);
+        }
         return;
     }
+
+    if (!currentAudio.src) {
+        console.log("没有音频源可播放/暂停");
+        return;
+    }
+
     try {
         if (currentAudio.paused) {
+            console.log("播放");
             const playPromise = currentAudio.play();
             if (playPromise !== undefined) {
-                playPromise.catch((error) => {
-                    console.error("Error playing audio:", error);
-                    if (error.name === "NotSupportedError" || error.message.includes("no supported sources")) {
-                        console.warn("Audio source may be invalid, clearing src");
-                        currentAudio.src = "";
-                        currentAudio.load();
-                    }
-                });
+                playPromise
+                    .then(() => {})
+                    .catch((error) => {
+                        console.error("播放音频出错:", error);
+                        if (error.name === "NotSupportedError" || error.message.includes("no supported sources") || error.name === "AbortError") {
+                            console.warn("音频源可能无效，正在尝试重新加载当前歌曲");
+                            if (currentSongId) {
+                                playSong(currentSongId, true);
+                            }
+                        }
+                    });
             }
-            console.log("Audio resumed");
             buttonElement.innerHTML = `
                 <rect x="14" y="3" width="5" height="18" rx="1"/>
                 <rect x="5" y="3" width="5" height="18" rx="1"/>
@@ -282,8 +422,8 @@ function togglePause(buttonElement) {
                 window.electronAPI.sendTime(currentAudio.currentTime, Date.now());
             }
         } else {
+            console.log("暂停");
             currentAudio.pause();
-            console.log("Audio paused");
             buttonElement.innerHTML = `
                 <path d="M5 5a2 2 0 0 1 3.008-1.728l11.997 6.998a2 2 0 0 1 .003 3.458l-12 7A2 2 0 0 1 5 19z" />
             `;
@@ -292,7 +432,7 @@ function togglePause(buttonElement) {
             }
         }
     } catch (error) {
-        console.error("Error toggling pause:", error);
+        console.error("切换暂停状态出错:", error);
     }
 }
 
@@ -319,10 +459,9 @@ async function loadLyrics(songId) {
     try {
         const lyricData = await window.musicApi.getLyric(songId);
         if (!lyricData) {
-            console.log("无歌词数据");
+            console.log("歌曲没有歌词数据");
             return;
         }
-
         currentLyrics = lyricData.lyrics;
 
         // 渲染歌词
@@ -338,7 +477,10 @@ async function loadLyrics(songId) {
 
 // 渲染歌词
 function renderLyrics(lyrics) {
-    if (!lyricsLines) return;
+    if (!lyricsLines) {
+        console.warn("歌词容器未找到");
+        return;
+    }
 
     lyricsLines.innerHTML = "";
 
@@ -363,12 +505,14 @@ function updateLyricHighlight(currentTime) {
     if (currentLyrics.length === 0 || !lyricsLines) return;
     let newIndex = -1;
     for (let i = 0; i < currentLyrics.length; i++) {
+        if (currentLyrics[i].time === null) continue;
         if (currentTime >= currentLyrics[i].time) {
             newIndex = i;
         } else {
             break;
         }
     }
+    if (newIndex === -1) return;
     if (newIndex === currentLyricIndex) return;
     const oldLine = lyricsLines.querySelector(".lyric-line.active");
     if (oldLine) {
@@ -387,5 +531,3 @@ function updateLyricHighlight(currentTime) {
         }
     }
 }
-
-document.addEventListener("DOMContentLoaded", loadLastPlayedSong);

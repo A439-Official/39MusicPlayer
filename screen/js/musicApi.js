@@ -1,402 +1,289 @@
 window.musicApi = window.musicApi || {};
 
-const rootUrl = "https://ncm-api.prod.gbclstudio.cn";
+let currentSource = "";
+const pending = {};
+const pendingAudioCache = {};
+const blobUrls = new Map();
+const resolvedIds = new Map();
 
-const pendingPromises = {
-    songs: {},
-    lyrics: {},
-    mvs: {},
-    audio: {},
-};
+function parseId(data) {
+    const [source = "", id] = data.includes("|") ? data.split("|") : ["", data];
 
-// 并发控制
-const MAX_CONCURRENT_REQUESTS = 5;
-let activeRequests = 0;
-const requestQueue = [];
-
-function processQueue() {
-    if (activeRequests >= MAX_CONCURRENT_REQUESTS || requestQueue.length === 0) {
-        return;
-    }
-
-    const { requestFn, resolve, reject } = requestQueue.shift();
-    activeRequests++;
-
-    requestFn()
-        .then((result) => {
-            activeRequests--;
-            resolve(result);
-            setTimeout(processQueue, 0);
-        })
-        .catch((error) => {
-            activeRequests--;
-            reject(error);
-            setTimeout(processQueue, 0);
-        });
+    return { source, id };
 }
 
-// 将请求加入队列
-function enqueueRequest(requestFn) {
-    return new Promise((resolve, reject) => {
-        requestQueue.push({ requestFn, resolve, reject });
-        setTimeout(processQueue, 0);
+function makeId(source, id) {
+    return `${source}|${id}`;
+}
+
+function jsonBuffer(data) {
+    try {
+        return new TextEncoder().encode(JSON.stringify(data));
+    } catch {
+        return null;
+    }
+}
+
+function bufferJson(buffer) {
+    try {
+        return buffer && JSON.parse(new TextDecoder().decode(buffer));
+    } catch {
+        return null;
+    }
+}
+
+async function run(source, action, params) {
+    if (!source) return null;
+    return window.electronAPI.scriptRun(source, {
+        action,
+        params,
     });
 }
 
-const fetchJson = async (url, data, retries = 1) => {
-    return enqueueRequest(async () => {
-        let lastError;
-        for (let i = 0; i < retries; i++) {
-            try {
-                const options = {
-                    method: data !== undefined ? "POST" : "GET",
-                    headers: {},
-                };
-                if (data) {
-                    options.headers["Content-Type"] = "application/json";
-                    options.body = JSON.stringify(data);
-                }
-                const response = await fetch(url, options);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-                const result = await response.json();
-                if (result.code !== 200) {
-                    throw new Error(`API error: ${result.code}`);
-                }
-                return result;
-            } catch (error) {
-                lastError = error;
-                if (i === retries - 1) {
-                    return null;
-                }
-                await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
-            }
-        }
-        return null;
-    });
-};
-
-// 解析歌曲信息
-const parseSong = (song, privilege) => ({
-    id: song.id.toString(),
-    name: song.name,
-    artist: song.ar?.map((a) => a.name) || [],
-    album: song.al?.name || "",
-    pic: song.al?.picUrl || "",
-    mv: song.mv,
-    fee: song.fee || 0,
-});
-
-// 解析歌词
-const parseLyrics = (lyricData) => {
-    const lyric = lyricData?.lyric;
-    if (!lyric) return [];
-    return lyric
-        .split("\n")
-        .filter((line) => line.trim())
-        .map((line) => {
-            line = line.trim();
-            // lrc
-            const lrcMatch = line.match(/^\[(\d+):(\d+\.\d+)\](.*)/);
-            if (lrcMatch) {
-                return {
-                    time: parseInt(lrcMatch[1]) * 60 + parseFloat(lrcMatch[2]),
-                    text: lrcMatch[3].trim(),
-                };
-            }
-            // yrc
-            const yrcLineMatch = line.match(/^\[(\d+),(\d+)\]/);
-            if (yrcLineMatch) {
-                const lineStart = parseInt(yrcLineMatch[1]);
-                const lineDuration = parseInt(yrcLineMatch[2]);
-                const rest = line.slice(yrcLineMatch[0].length);
-                const wordRegex = /\((\d+),(\d+),\d+\)([^\(\)]+)/g;
-                const words = [];
-                let fullText = "";
-                let match;
-                while ((match = wordRegex.exec(rest)) !== null) {
-                    const start = parseInt(match[1]);
-                    const duration = parseInt(match[2]);
-                    const text = match[3];
-                    words.push({ text, start, duration });
-                    fullText += text;
-                }
-                if (words.length === 0) {
-                    return null;
-                }
-                return {
-                    time: lineStart / 1000,
-                    text: fullText,
-                    words: words.map((w) => ({ text: w.text, start: w.start / 1000, duration: w.duration / 1000 })),
-                };
-            }
-            if (line.startsWith("{")) {
-                return null;
-            }
-            return null;
-        })
-        .filter(Boolean);
-};
-
-function bufferToJson(buffer) {
-    if (!buffer) return null;
-    try {
-        const text = new TextDecoder().decode(buffer);
-        return JSON.parse(text);
-    } catch (error) {
-        console.error("Failed to parse cache data:", error);
-        return null;
-    }
+async function cacheGet(key) {
+    return bufferJson(await electronAPI.getCache(key));
 }
 
-function jsonToBuffer(obj) {
-    try {
-        const text = JSON.stringify(obj);
-        return new TextEncoder().encode(text);
-    } catch (error) {
-        console.error("Failed to serialize cache data:", error);
-        return null;
-    }
+async function cacheSet(key, data) {
+    const buffer = jsonBuffer(data);
+    if (buffer) await electronAPI.saveCache(key, buffer);
 }
 
-// 歌曲信息
-window.musicApi.getSongInfo = async (id) => {
-    const buffer = await electronAPI.getCache(`${id}_info`);
-    if (buffer) {
-        const song_info = bufferToJson(buffer);
-        if (song_info) return song_info;
-    }
-    if (pendingPromises.songs[id]) {
-        return pendingPromises.songs[id];
-    }
-    const promise = (async () => {
+async function resolveId(id) {
+    const { source } = parseId(id);
+    if (source) return id;
+
+    if (resolvedIds.has(id)) return resolvedIds.get(id);
+
+    const sources = await window.musicApi.getSources();
+    for (const s of sources) {
         try {
-            const data = await fetchJson(`${rootUrl}/song/detail?ids=${id}`);
-            if (!data?.songs[0]) return null;
-            const song_info = parseSong(data.songs[0]);
-            const buffer = jsonToBuffer(song_info);
-            if (buffer) {
-                await electronAPI.saveCache(`${id}_info`, buffer);
+            const result = await run(s.id, "getInfo", { id });
+            if (result && result.name) {
+                const resolved = makeId(s.id, id);
+                resolvedIds.set(id, resolved);
+                return resolved;
             }
-            return song_info;
+        } catch {}
+    }
+
+    resolvedIds.set(id, id);
+    return id;
+}
+
+async function cachedRequest(type, id, action) {
+    const resolvedId = await resolveId(id);
+    const key = `${resolvedId}_${type}.json`;
+
+    const cache = await cacheGet(key);
+    if (cache) return cache;
+
+    if (pending[key]) return pending[key];
+
+    pending[key] = (async () => {
+        try {
+            const { source, id: realId } = parseId(resolvedId);
+
+            const result = await run(source, action, {
+                id: realId,
+            });
+
+            await cacheSet(key, result);
+
+            return result;
         } finally {
-            delete pendingPromises.songs[id];
+            delete pending[key];
         }
     })();
-    pendingPromises.songs[id] = promise;
-    return promise;
+
+    return pending[key];
+}
+
+window.musicApi.setSource = (source) => {
+    currentSource = source;
 };
 
-// 搜索歌曲
-window.musicApi.search = async (text, limit = 30, page = 0) => {
-    const data = await fetchJson(`${rootUrl}/cloudsearch?limit=${limit}&offset=${page * limit}&keywords=${encodeURIComponent(text)}`);
-    const songs = data?.result?.songs || [];
-    return songs.map((song) => parseSong(song));
-};
+window.musicApi.getCurrentSource = () => currentSource;
 
-// 下载音频文件
-async function fetchAudio(url, retries = 3) {
-    return enqueueRequest(async () => {
-        let lastError;
-        for (let i = 0; i < retries; i++) {
-            try {
-                const response = await fetch(url);
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const contentType = response.headers.get("content-type") || "audio/mpeg";
-                const arrayBuffer = await response.arrayBuffer();
-                return {
-                    data: new Uint8Array(arrayBuffer),
-                    mimeType: contentType,
-                };
-            } catch (error) {
-                lastError = error;
-                console.warn(`Audio download attempt ${i + 1} failed. Retrying...`);
-                if (i === retries - 1) {
-                    console.error("All audio download retries failed. Last error:", error);
-                    return null;
-                }
-                await new Promise((resolve) => setTimeout(resolve, 1000 * (i + 1)));
-            }
-        }
-        console.error("Unexpected error in audio download retry logic", lastError);
-        return null;
-    });
-}
-
-// blobURL管理
-const blobUrlCache = new Map();
-
-function createBlobUrl(audioData, mimeType) {
-    const blob = new Blob([audioData], { type: mimeType });
-    const blobUrl = URL.createObjectURL(blob);
-    return blobUrl;
-}
-
-function revokeBlobUrl(blobUrl) {
-    if (blobUrl && blobUrl.startsWith("blob:")) {
-        URL.revokeObjectURL(blobUrl);
-    }
-}
-
-async function downloadAndCacheAudio(id, audioUrl) {
-    const cacheKey = `${id}_audio`;
-    if (pendingPromises.audio[id]) return;
-    pendingPromises.audio[id] = true;
-
+window.musicApi.getSources = async () => {
     try {
-        const audioResult = await fetchAudio(audioUrl);
-        if (audioResult?.data) {
-            await electronAPI.saveCache(cacheKey, audioResult.data);
-            const mimeTypeBuffer = new TextEncoder().encode(audioResult.mimeType);
-            await electronAPI.saveCache(`${cacheKey}_mime`, mimeTypeBuffer);
+        return (await window.electronAPI.scriptList()) || [];
+    } catch {
+        return [];
+    }
+};
+
+window.musicApi.search = async (text) => {
+    const sources = await window.musicApi.getSources();
+
+    const ids = sources.map((x) => x.id);
+
+    const order = [currentSource, ...ids.filter((x) => x !== currentSource)];
+
+    for (const source of order) {
+        try {
+            const result = await run(source, "search", { text });
+
+            if (result?.length) {
+                return result.map((id) => makeId(source, id));
+            }
+        } catch {}
+    }
+
+    return [];
+};
+
+window.musicApi.getInfo = async (id) => {
+    const info = await cachedRequest("info", id, "getInfo");
+    if (!info || !info.pic) return info;
+
+    const resolvedId = await resolveId(id);
+    const coverKey = `${resolvedId}_cover.png`;
+
+    const cache = await electronAPI.getCache(coverKey);
+    if (cache) {
+        const url = URL.createObjectURL(new Blob([cache], { type: "image/png" }));
+        blobUrls.set(`${resolvedId}_cover`, url);
+        info.pic = url;
+        return info;
+    }
+
+    // 后台缓存封面
+    const picUrl = info.pic;
+    (async () => {
+        const data = await fetchImage(picUrl);
+        if (data) {
+            await electronAPI.saveCache(coverKey, data);
         }
-    } catch (error) {
-    } finally {
-        delete pendingPromises.audio[id];
+    })();
+
+    return info;
+};
+
+window.musicApi.getLyric = (id) => cachedRequest("lyric", id, "getLyric");
+
+async function fetchAudio(url) {
+    for (let i = 0; i < 8; i++) {
+        try {
+            const res = await fetch(url, {
+                headers: {
+                    Range: "bytes=0-",
+                },
+            });
+            if (!res.ok) throw Error(res.status);
+
+            const contentType = res.headers.get("content-type");
+            if (!contentType?.startsWith("audio/")) {
+                throw new Error("非音频 MIME");
+            }
+
+            const arrayBuffer = await res.arrayBuffer();
+
+            return {
+                data: new Uint8Array(arrayBuffer),
+                mime: contentType,
+            };
+        } catch (e) {
+            console.error("音频下载失败:", e);
+            if (i === 7) return null;
+            await new Promise((r) => setTimeout(r, (i + 1) * 1000));
+        }
     }
 }
 
-// 获取歌曲URL
-window.musicApi.getSongUrl = async (id) => {
-    const cacheKey = `${id}_audio`;
+async function fetchImage(url) {
+    for (let i = 0; i < 8; i++) {
+        try {
+            const res = await fetch(url);
+            if (!res.ok) throw Error(res.status);
 
-    // 检查缓存
-    const audioBuffer = await electronAPI.getCache(cacheKey);
-    if (audioBuffer) {
-        const mimeTypeBuffer = await electronAPI.getCache(`${cacheKey}_mime`);
-        const mimeType = mimeTypeBuffer ? new TextDecoder().decode(mimeTypeBuffer) : "audio/mpeg";
-        const blobUrl = createBlobUrl(audioBuffer, mimeType);
-        if (blobUrlCache.has(id)) {
-            revokeBlobUrl(blobUrlCache.get(id));
-        }
-        blobUrlCache.set(id, blobUrl);
-        return { id, url: blobUrl, fromCache: true };
-    }
-
-    // 获取歌曲信息
-    const buffer = await electronAPI.getCache(`${id}_info`);
-    let song_info = buffer ? bufferToJson(buffer) : null;
-    const info = song_info || (await window.musicApi.getSongInfo(id));
-    if (!info) return null;
-
-    // 获取音频URL
-    let audioUrl = info.url;
-    if (!audioUrl) {
-        const mainData = await fetchJson(`${rootUrl}/song/url?level=lossless&id=${id}`);
-        const urlData = mainData?.data?.[0];
-
-        if (info.fee > 0 || !urlData) {
-            audioUrl = await window.netease.getUrl(id);
-        }
-
-        audioUrl = audioUrl || urlData?.url;
-        if (!audioUrl) return null;
-        info.url = audioUrl;
-        const infoBuffer = jsonToBuffer(info);
-        if (infoBuffer) {
-            await electronAPI.saveCache(`${id}_info`, infoBuffer);
+            const arrayBuffer = await res.arrayBuffer();
+            return new Uint8Array(arrayBuffer);
+        } catch (e) {
+            console.error("图片下载失败:", e);
+            if (i === 7) return null;
+            await new Promise((r) => setTimeout(r, (i + 1) * 1000));
         }
     }
-    downloadAndCacheAudio(id, audioUrl);
-    return { id, url: audioUrl, fromCache: false };
+}
+
+window.musicApi.getUrl = async (id) => {
+    const resolvedId = await resolveId(id);
+    const audioKey = `${resolvedId}.mp3`;
+
+    const cache = await electronAPI.getCache(audioKey);
+
+    if (cache) {
+        const url = URL.createObjectURL(new Blob([cache], { type: "audio/mpeg" }));
+
+        blobUrls.set(resolvedId, url);
+
+        return {
+            id: resolvedId,
+            url,
+            fromCache: true,
+        };
+    }
+
+    const { source, id: realId } = parseId(resolvedId);
+
+    const url = await run(source, "getUrl", { id: realId });
+
+    if (!url) return null;
+
+    // 后台缓存
+    if (pendingAudioCache[audioKey]) {
+        return {
+            id: resolvedId,
+            url,
+            fromCache: false,
+        };
+    }
+    pendingAudioCache[audioKey] = (async () => {
+        console.log("开始缓存:", id);
+        const audio = await fetchAudio(url);
+        console.log("缓存完成:", id);
+
+        if (audio) {
+            await electronAPI.saveCache(audioKey, audio.data);
+        } else {
+            console.log("缓存失败:", id);
+        }
+        delete pendingAudioCache[audioKey];
+    })();
+
+    return {
+        id: resolvedId,
+        url,
+        fromCache: false,
+    };
 };
 
-// 清理blobURL
+window.musicApi.deleteAudioCache = async (id) => {
+    const resolvedId = await resolveId(id);
+    const audioKey = `${resolvedId}.mp3`;
+    const coverKey = `${resolvedId}_cover.png`;
+
+    window.musicApi.revokeBlobUrl(resolvedId);
+    window.musicApi.revokeBlobUrl(`${resolvedId}_cover`);
+
+    await electronAPI.deleteCache(audioKey);
+    await electronAPI.deleteCache(coverKey);
+};
+
 window.musicApi.revokeBlobUrl = (id) => {
-    if (blobUrlCache.has(id)) {
-        revokeBlobUrl(blobUrlCache.get(id));
-        blobUrlCache.delete(id);
+    const url = blobUrls.get(id);
+
+    if (url) {
+        URL.revokeObjectURL(url);
+        blobUrls.delete(id);
     }
 };
 
-// 清理所有blobURL
 window.musicApi.revokeAllBlobUrls = () => {
-    for (const blobUrl of blobUrlCache.values()) {
-        revokeBlobUrl(blobUrl);
-    }
-    blobUrlCache.clear();
+    for (const url of blobUrls.values()) URL.revokeObjectURL(url);
+
+    blobUrls.clear();
 };
 
-if (typeof window !== "undefined") {
-    window.addEventListener("beforeunload", () => {
-        if (window.musicApi && window.musicApi.revokeAllBlobUrls) {
-            window.musicApi.revokeAllBlobUrls();
-        }
-    });
-    window.addEventListener("pagehide", () => {
-        if (window.musicApi && window.musicApi.revokeAllBlobUrls) {
-            window.musicApi.revokeAllBlobUrls();
-        }
-    });
-}
-
-// 获取歌词
-window.musicApi.getLyric = async (id) => {
-    const buffer = await electronAPI.getCache(`${id}_lyric`);
-    if (buffer) {
-        const lyricData = bufferToJson(buffer);
-        if (lyricData) return lyricData;
-    }
-    if (pendingPromises.lyrics[id]) {
-        return pendingPromises.lyrics[id];
-    }
-    const promise = (async () => {
-        try {
-            const data = await fetchJson(`${rootUrl}/lyric/new?id=${id}`);
-            if (!data) return null;
-            const lyricData = {
-                id,
-                lyrics: parseLyrics(data.lrc),
-                tlyrics: parseLyrics(data.tlyric),
-                wlyrics: parseLyrics(data.yrc),
-            };
-            const buffer = jsonToBuffer(lyricData);
-            if (buffer) {
-                await electronAPI.saveCache(`${id}_lyric`, buffer);
-            }
-            return lyricData;
-        } finally {
-            delete pendingPromises.lyrics[id];
-        }
-    })();
-    pendingPromises.lyrics[id] = promise;
-    return promise;
-};
-
-// 获取MV
-window.musicApi.getMv = async (id) => {
-    const buffer = await electronAPI.getCache(`${id}_mv`);
-    if (buffer) {
-        const mvData = bufferToJson(buffer);
-        if (mvData) return mvData;
-    }
-    if (pendingPromises.mvs[id]) {
-        return pendingPromises.mvs[id];
-    }
-    const promise = (async () => {
-        try {
-            const data = await fetchJson(`${rootUrl}/mv/url?id=${id}`);
-            if (!data?.data?.url) return null;
-            const [minutes, seconds] = data.data.duration.split(":").map(Number);
-            const mvData = {
-                id,
-                url: data.data.url,
-                size: data.data.size,
-                duration: (minutes * 60 + seconds) * 1000,
-            };
-            const buffer = jsonToBuffer(mvData);
-            if (buffer) {
-                await electronAPI.saveCache(`${id}_mv`, buffer);
-            }
-            return mvData;
-        } finally {
-            delete pendingPromises.mvs[id];
-        }
-    })();
-    pendingPromises.mvs[id] = promise;
-    return promise;
-};
+window.addEventListener("beforeunload", () => window.musicApi.revokeAllBlobUrls());

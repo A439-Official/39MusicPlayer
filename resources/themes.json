@@ -6,9 +6,7 @@
         "--color-2": "#061413",
         "--color-3": "#0c2927",
         "--color-4": "#18524e",
-        "--color-5": "#2fa39b",
-        "--border-radius": "0.5em",
-        "--button-width": "0.1rem"
+        "--color-5": "#2fa39b"
     },
     "Dark": {
         "--text-1": "#e0e0e0",
@@ -17,9 +15,7 @@
         "--color-2": "#1a1a1a",
         "--color-3": "#444444",
         "--color-4": "#333333",
-        "--color-5": "#333333",
-        "--border-radius": "0.5em",
-        "--button-width": "0.1rem"
+        "--color-5": "#333333"
     },
     "Light": {
         "--text-1": "#333333",
@@ -28,9 +24,7 @@
         "--color-2": "#f0f0f0",
         "--color-3": "#d0d0d0",
         "--color-4": "#e0e0e0",
-        "--color-5": "#e0e0e0",
-        "--border-radius": "0.5em",
-        "--button-width": "0.1rem"
+        "--color-5": "#e0e0e0"
     },
     "AliceBlue": {
         "--text-1": "#ffffff",
@@ -39,8 +33,6 @@
         "--color-2": "#1a73e8",
         "--color-3": "#4285f4",
         "--color-4": "#66a3ff",
-        "--color-5": "#a8d0ff",
-        "--border-radius": "0.5em",
-        "--button-width": "0.1rem"
+        "--color-5": "#a8d0ff"
     }
 }

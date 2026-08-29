@@ -1,9 +1,23 @@
-const fs = require("fs");
-const path = require("path");
+import fs from "fs";
+import path from "path";
 
 /**
  * 缓存管理器
  */
+/**
+ * Windows 文件名非法字符正则：< > : " \ / | ? *
+ */
+const INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/g;
+
+/**
+ * 将缓存路径中的非法字符替换为安全字符
+ * @param {string} cachePath
+ * @returns {string}
+ */
+function sanitizeCachePath(cachePath) {
+    return cachePath.replace(INVALID_FILENAME_CHARS, "_");
+}
+
 class CacheManager {
     constructor(configManager) {
         this.cacheDir = path.join(configManager.getConfigDir(), "cache");
@@ -31,7 +45,7 @@ class CacheManager {
                 this.saveMetadata();
             }
         } catch (error) {
-            console.error("Failed to load cache metadata:", error);
+            console.error("加载缓存元数据失败:", error);
             this.metadata = {};
         }
     }
@@ -40,7 +54,7 @@ class CacheManager {
         try {
             fs.writeFileSync(this.metadataFile, JSON.stringify(this.metadata, null, 2));
         } catch (error) {
-            console.error("Failed to save cache metadata:", error);
+            console.error("保存缓存元数据失败:", error);
         }
     }
 
@@ -52,35 +66,37 @@ class CacheManager {
     }
 
     async getCache(cachePath) {
-        const filePath = path.join(this.cacheDir, cachePath);
+        const safePath = sanitizeCachePath(cachePath);
+        const filePath = path.join(this.cacheDir, safePath);
         try {
             if (fs.existsSync(filePath)) {
-                this.updateAccessTime(cachePath);
+                this.updateAccessTime(safePath);
                 return fs.readFileSync(filePath);
             }
             return null;
         } catch (error) {
-            console.error("Failed to read cache file:", error);
+            console.error("读取缓存文件失败:", error);
             return null;
         }
     }
 
     async saveCache(cachePath, data) {
         if (!Buffer.isBuffer(data) && !(data instanceof Uint8Array)) {
-            console.error("Cache data must be Buffer or Uint8Array");
+            console.error("缓存数据必须是 Buffer 或 Uint8Array 类型");
             return false;
         }
 
         try {
             this.ensureCacheDirExists();
-            fs.writeFileSync(path.join(this.cacheDir, cachePath), data);
+            const safePath = sanitizeCachePath(cachePath);
+            fs.writeFileSync(path.join(this.cacheDir, safePath), data);
 
             const now = Date.now();
-            this.metadata[cachePath] = { created: now, lastAccessed: now };
+            this.metadata[safePath] = { created: now, lastAccessed: now };
             this.saveMetadata();
             return true;
         } catch (error) {
-            console.error("Failed to save cache file:", error);
+            console.error("保存缓存文件失败:", error);
             return false;
         }
     }
@@ -102,16 +118,33 @@ class CacheManager {
                         delete this.metadata[file];
                         cleaned++;
                     } catch (err) {
-                        console.error(`Failed to delete ${file}:`, err);
+                        console.error(`删除缓存文件失败 ${file}:`, err);
                     }
                 }
             }
 
             if (cleaned) this.saveMetadata();
-            cleaned && console.log(`Cleaned ${cleaned} expired cache files.`);
+            cleaned && console.log(`已清理 ${cleaned} 个过期缓存文件。`);
             return true;
         } catch (error) {
-            console.error("Failed to cleanup expired cache:", error);
+            console.error("清理过期缓存失败:", error);
+            return false;
+        }
+    }
+
+    async deleteCache(cachePath) {
+        const safePath = sanitizeCachePath(cachePath);
+        const filePath = path.join(this.cacheDir, safePath);
+        try {
+            if (fs.existsSync(filePath)) {
+                fs.unlinkSync(filePath);
+                delete this.metadata[safePath];
+                this.saveMetadata();
+                return true;
+            }
+            return false;
+        } catch (error) {
+            console.error("删除缓存文件失败:", error);
             return false;
         }
     }
@@ -125,10 +158,10 @@ class CacheManager {
             }
             return true;
         } catch (error) {
-            console.error("Failed to clear cache:", error);
+            console.error("清空缓存失败:", error);
             return false;
         }
     }
 }
 
-module.exports = CacheManager;
+export default CacheManager;

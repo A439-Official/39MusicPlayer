@@ -1,15 +1,22 @@
-const { app, BrowserWindow, Menu, MenuItem, session, screen } = require("electron");
-const path = require("node:path");
-const ConfigManager = require("./scripts/configManager");
-const { registerProtocolHandler } = require("./scripts/protocolHandler");
-const { registerIPC } = require("./scripts/ipcHandler");
-const { createTray } = require("./scripts/trayManager");
+import { app, BrowserWindow, Menu, MenuItem, session, screen, protocol } from "electron";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
+import ConfigManager from "./scripts/configManager.js";
+import { registerProtocolHandler } from "./scripts/protocolHandler.js";
+import { registerIPC } from "./scripts/ipcHandler.js";
+import { createTray } from "./scripts/trayManager.js";
+import { setupAutoUpdater } from "./scripts/autoUpdater.js";
+import Logger from "./scripts/logger.js";
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = path.dirname(__filename);
 
 const APP_NAME = "39MusicPlayer";
 
-let mainWindow = null;
-let lyricsWindow = null;
-let configManager = null;
+let mainWindow;
+let lyricsWindow;
+let configManager;
+let tray;
 const appLock = app.requestSingleInstanceLock();
 
 function focus() {
@@ -25,12 +32,13 @@ function focus() {
 }
 
 function createWindow() {
+    const appVersion = app.getVersion();
     mainWindow = new BrowserWindow({
         width: 1280,
         height: 720,
         minWidth: 840,
         minHeight: 560,
-        title: APP_NAME,
+        title: `${APP_NAME} v${appVersion}`,
         icon: path.join(__dirname, "resources/icon.png"),
         webPreferences: {
             preload: path.join(__dirname, "preload.js"),
@@ -40,6 +48,7 @@ function createWindow() {
             backgroundThrottling: false,
         },
         autoHideMenuBar: true,
+        show: false,
     });
 
     mainWindow.setFullScreen(configManager.get("fullscreen", false));
@@ -47,7 +56,7 @@ function createWindow() {
     initShortcuts();
 
     mainWindow.loadFile(path.join(__dirname, "screen/index.html")).catch((err) => {
-        console.error("Failed to load index.html:", err);
+        Logger.error("加载 index.html 失败:", err);
     });
 
     mainWindow.on("close", (event) => {
@@ -65,6 +74,10 @@ function createWindow() {
             lyricsWindow.close();
             lyricsWindow = null;
         }
+    });
+
+    mainWindow.once("ready-to-show", () => {
+        mainWindow.show();
     });
 
     return mainWindow;
@@ -159,7 +172,7 @@ function initShortcuts() {
 
 function initializeApp() {
     session.defaultSession.setCertificateVerifyProc((request, callback) => {
-        console.log("skip SSL verification for", request.hostname);
+        Logger.info("跳过 SSL 验证:", request.hostname);
         callback(0);
     });
 
@@ -171,12 +184,26 @@ function initializeApp() {
     createLyricsWindow();
     registerIPC(app, configManager, lyricsWindow);
     tray = createTray(app, focus);
+
+    setupAutoUpdater(mainWindow, configManager);
 }
 
 if (!appLock) {
     app.quit();
 } else {
     app.on("second-instance", focus);
+
+    protocol.registerSchemesAsPrivileged([
+        {
+            scheme: "res",
+            privileges: {
+                standard: true,
+                secure: true,
+                supportFetchAPI: true,
+                corsEnabled: true,
+            },
+        },
+    ]);
 
     app.whenReady().then(() => {
         app.isQuitting = false;
@@ -191,15 +218,15 @@ if (!appLock) {
     app.on("window-all-closed", () => {});
 
     app.on("before-quit", () => {
-        console.log("Application is quitting...");
+        Logger.info("应用程序正在退出...");
         app.isQuitting = true;
     });
 
     process.on("uncaughtException", (error) => {
-        console.error("Uncaught Exception:", error);
+        Logger.error("未捕获的异常:", error);
     });
 
     process.on("unhandledRejection", (reason, promise) => {
-        console.error("Unhandled Rejection at:", promise, "reason:", reason);
+        Logger.error("未处理的 Promise 拒绝，位置:", promise, "原因:", reason);
     });
 }

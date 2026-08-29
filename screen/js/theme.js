@@ -4,7 +4,7 @@ let themeSelectCustom = null;
 
 async function loadThemes() {
     try {
-        const response = await fetch("../resources/themes.json");
+        const response = await fetch("res://themes.json");
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
@@ -13,14 +13,14 @@ async function loadThemes() {
             theme = "Default";
         }
     } catch (error) {
-        console.error("Failed to load themes:", error);
+        console.error("加载主题文件失败:", error);
         themes = {};
     }
 }
 
 function applyTheme(themeName) {
     if (!themes || !themes[themeName]) {
-        console.warn(`Theme "${themeName}" not found`);
+        console.warn(`未找到主题 "${themeName}"`);
         return false;
     }
     const themeData = themes[themeName];
@@ -40,7 +40,7 @@ async function loadTheme(themeName) {
         try {
             await window.electronAPI.setConfig("theme", themeName);
         } catch (e) {
-            console.warn("Failed to save theme to config:", e);
+            console.warn("保存主题设置到配置失败:", e);
         }
         updateThemeSelector();
         return true;
@@ -79,7 +79,7 @@ function initTheme() {
                 applyTheme(theme);
             }
         } catch (e) {
-            console.warn("Failed to load saved theme:", e);
+            console.warn("加载已保存的主题设置失败:", e);
             applyTheme(theme);
         }
 
@@ -87,7 +87,3 @@ function initTheme() {
         resolve();
     });
 }
-
-document.addEventListener("DOMContentLoaded", async () => {
-    await initTheme();
-});

@@ -4,46 +4,62 @@ let languageSelectCustom = null;
 
 async function loadLanguages() {
     try {
-        const response = await fetch("../resources/languages.json");
+        const response = await fetch("res://languages.json");
         if (!response.ok) {
             throw new Error(`HTTP error! status: ${response.status}`);
         }
         languages = await response.json();
     } catch (error) {
-        console.error("Failed to load languages:", error);
+        console.error("加载语言文件失败:", error);
         languages = {};
     }
 }
 
-function translate(text) {
+function i18n(key) {
     if (currentLanguage === "English") {
-        return text;
+        return key;
     }
     if (languages && languages[currentLanguage]) {
-        return languages[currentLanguage][text] || text;
+        return languages[currentLanguage][key] || key;
     }
-    return text;
+    return key;
 }
 
-function applyTranslations() {
-    const elements = document.querySelectorAll("[data-i18n]");
+function translations(root = document) {
+    const elements = root.querySelectorAll("[data-i18n]");
+
     elements.forEach((element) => {
-        const key = element.getAttribute("data-i18n");
-        const translated = translate(key);
+        if (!element.dataset.i18nKey) {
+            element.dataset.i18nKey = element.getAttribute("data-i18n");
+        }
+
+        const key = element.dataset.i18nKey;
+        const translated = i18n(key);
 
         if (element.tagName === "INPUT" || element.tagName === "TEXTAREA") {
             element.placeholder = translated;
-        } else if (element.hasAttribute("data-i18n-title")) {
-            element.title = translated;
         } else {
             element.textContent = translated;
         }
     });
-    if (currentLanguage === "English") {
-        document.documentElement.lang = "en";
-    } else {
-        document.documentElement.lang = "zh-CN";
-    }
+}
+
+function observeI18nChanges() {
+    const observer = new MutationObserver((mutations) => {
+        for (const m of mutations) {
+            m.addedNodes.forEach((node) => {
+                if (node.nodeType !== 1) return;
+                if (node.matches?.("[data-i18n]") || node.querySelector?.("[data-i18n]")) {
+                    translations(node);
+                }
+            });
+        }
+    });
+
+    observer.observe(document.body, {
+        childList: true,
+        subtree: true,
+    });
 }
 
 async function loadLanguage(langCode) {
@@ -61,10 +77,10 @@ async function loadLanguage(langCode) {
     try {
         await window.electronAPI.setConfig("language", langCode);
     } catch (e) {
-        console.warn("Failed to save language to config:", e);
+        console.warn("保存语言设置到配置失败:", e);
     }
 
-    applyTranslations();
+    translations();
     updateLanguageSelector();
     return true;
 }
@@ -95,21 +111,13 @@ function updateLanguageSelector() {
 }
 
 async function initI18n() {
-    return new Promise(async (resolve) => {
-        await loadLanguages();
+    await loadLanguages();
 
-        try {
-            const savedLanguage = await window.electronAPI.getConfig("language", "English");
-            await loadLanguage(savedLanguage);
-        } catch (e) {
-            console.warn("Failed to load saved language:", e);
-            await loadLanguage("English");
-        }
-
-        resolve();
-    });
+    try {
+        const savedLanguage = await window.electronAPI.getConfig("language", "English");
+        await loadLanguage(savedLanguage);
+    } catch (e) {
+        console.warn("加载已保存的语言设置失败:", e);
+        await loadLanguage("English");
+    }
 }
-
-document.addEventListener("DOMContentLoaded", async () => {
-    await initI18n();
-});

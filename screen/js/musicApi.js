@@ -41,12 +41,37 @@ async function run(source, action, params) {
 }
 
 async function cacheGet(key) {
-    return bufferJson(await electronAPI.getCache(key));
+    const result = await electronAPI.getCache(key);
+    if (result && !result.expired && result.data) {
+        return bufferJson(result.data);
+    }
+    return null;
 }
 
 async function cacheSet(key, data) {
     const buffer = jsonBuffer(data);
     if (buffer) await electronAPI.saveCache(key, buffer);
+}
+
+/**
+ * 缓存真正的 MIME。缓存文件本身不带类型信息，
+ * 光靠后缀猜会把 flac/m4a 当成 audio/mpeg 播不出来。
+ */
+async function cacheGetMime(key, fallback) {
+    const result = await electronAPI.getCache(key);
+    if (result && !result.expired && result.data) {
+        try {
+            return new TextDecoder().decode(result.data) || fallback;
+        } catch {
+            return fallback;
+        }
+    }
+    return fallback;
+}
+
+async function cacheSetMime(key, mime) {
+    if (!mime) return;
+    await electronAPI.saveCache(key, new TextEncoder().encode(mime));
 }
 
 async function resolveId(id) {
@@ -139,10 +164,12 @@ window.musicApi.getInfo = async (id) => {
 
     const resolvedId = await resolveId(id);
     const coverKey = `${resolvedId}_cover.png`;
+    const coverMimeKey = `${resolvedId}_cover.mime`;
 
-    const cache = await electronAPI.getCache(coverKey);
-    if (cache) {
-        const url = URL.createObjectURL(new Blob([cache], { type: "image/png" }));
+    const cacheResult = await electronAPI.getCache(coverKey);
+    if (cacheResult && !cacheResult.expired && cacheResult.data) {
+        const mime = await cacheGetMime(coverMimeKey, "image/png");
+        const url = URL.createObjectURL(new Blob([cacheResult.data], { type: mime }));
         blobUrls.set(`${resolvedId}_cover`, url);
         info.pic = url;
         return info;
@@ -151,9 +178,10 @@ window.musicApi.getInfo = async (id) => {
     // 后台缓存封面
     const picUrl = info.pic;
     (async () => {
-        const data = await fetchImage(picUrl);
-        if (data) {
-            await electronAPI.saveCache(coverKey, data);
+        const image = await fetchImage(picUrl);
+        if (image) {
+            await electronAPI.saveCache(coverKey, image.data);
+            await cacheSetMime(coverMimeKey, image.mime);
         }
     })();
 
@@ -198,7 +226,12 @@ async function fetchImage(url) {
             if (!res.ok) throw Error(res.status);
 
             const arrayBuffer = await res.arrayBuffer();
-            return new Uint8Array(arrayBuffer);
+            const contentType = res.headers.get("content-type") || "image/png";
+
+            return {
+                data: new Uint8Array(arrayBuffer),
+                mime: contentType.split(";")[0].trim() || "image/png",
+            };
         } catch (e) {
             console.error("图片下载失败:", e);
             if (i === 7) return null;
@@ -210,14 +243,13 @@ async function fetchImage(url) {
 window.musicApi.getUrl = async (id) => {
     const resolvedId = await resolveId(id);
     const audioKey = `${resolvedId}.mp3`;
+    const audioMimeKey = `${resolvedId}.mime`;
 
-    const cache = await electronAPI.getCache(audioKey);
-
-    if (cache) {
-        const url = URL.createObjectURL(new Blob([cache], { type: "audio/mpeg" }));
-
+    const cacheResult = await electronAPI.getCache(audioKey);
+    if (cacheResult && !cacheResult.expired && cacheResult.data) {
+        const mime = await cacheGetMime(audioMimeKey, "audio/mpeg");
+        const url = URL.createObjectURL(new Blob([cacheResult.data], { type: mime }));
         blobUrls.set(resolvedId, url);
-
         return {
             id: resolvedId,
             url,
@@ -240,16 +272,20 @@ window.musicApi.getUrl = async (id) => {
         };
     }
     pendingAudioCache[audioKey] = (async () => {
-        console.log("开始缓存:", id);
-        const audio = await fetchAudio(url);
-        console.log("缓存完成:", id);
+        try {
+            console.log("开始缓存:", id);
+            const audio = await fetchAudio(url);
+            console.log("缓存完成:", id);
 
-        if (audio) {
-            await electronAPI.saveCache(audioKey, audio.data);
-        } else {
-            console.log("缓存失败:", id);
+            if (audio) {
+                await electronAPI.saveCache(audioKey, audio.data);
+                await cacheSetMime(audioMimeKey, audio.mime);
+            } else {
+                console.log("缓存失败:", id);
+            }
+        } finally {
+            delete pendingAudioCache[audioKey];
         }
-        delete pendingAudioCache[audioKey];
     })();
 
     return {
@@ -268,7 +304,9 @@ window.musicApi.deleteAudioCache = async (id) => {
     window.musicApi.revokeBlobUrl(`${resolvedId}_cover`);
 
     await electronAPI.deleteCache(audioKey);
+    await electronAPI.deleteCache(`${resolvedId}.mime`);
     await electronAPI.deleteCache(coverKey);
+    await electronAPI.deleteCache(`${resolvedId}_cover.mime`);
 };
 
 window.musicApi.revokeBlobUrl = (id) => {

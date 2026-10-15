@@ -21,7 +21,7 @@ contextBridge.exposeInMainWorld("electronAPI", {
     getCache: (cachePath) => ipcRenderer.invoke("get-cache", cachePath),
     saveCache: (cachePath, data) => ipcRenderer.invoke("save-cache", cachePath, data),
     deleteCache: (cachePath) => ipcRenderer.invoke("delete-cache", cachePath),
-    clearCache: () => ipcRenderer.send("clear-cache"),
+    clearCache: () => ipcRenderer.invoke("clear-cache"),
 
     scriptRun: (id, params) => ipcRenderer.invoke("script-run", id, params),
     scriptList: () => ipcRenderer.invoke("script-list"),

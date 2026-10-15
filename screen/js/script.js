@@ -51,10 +51,10 @@ document.addEventListener("DOMContentLoaded", async () => {
 
     initVisualizer();
 
+    initPlaylist();
+
     setupMediaSession();
     loadLastPlayedSong();
-
-    initPlaylist();
 
     initCoroll();
 

@@ -12,15 +12,15 @@ const getCurrentPlaylist = () => {
 
 const isValidIndex = (idx) => idx >= 0 && idx < getCurrentPlaylist().songs.length;
 
-async function playSongl(songId) {
+async function playSongl(songId, play = true) {
     const index = getCurrentPlaylist().songs.indexOf(songId);
     if (!isValidIndex(index)) {
         await loadPlaylist("History");
-        playSong(songId);
+        playSong(songId, play);
         return;
     }
     playlistState.curSongIdx = index;
-    playSong(songId);
+    playSong(songId, play);
 }
 
 async function playNext() {

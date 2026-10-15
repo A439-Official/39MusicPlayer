@@ -1,19 +1,16 @@
 import fs from "fs";
 import path from "path";
 
-/**
- * 缓存管理器
- */
-/**
- * Windows 文件名非法字符正则：< > : " \ / | ? *
- */
 const INVALID_FILENAME_CHARS = /[<>:"/\\|?*]/g;
 
 /**
- * 将缓存路径中的非法字符替换为安全字符
- * @param {string} cachePath
- * @returns {string}
+ * 缓存过期阈值
+ * 超过30天需重新请求, 超过60天直接删除文件
  */
+const DAY_MS = 1000 * 60 * 60 * 24;
+const STALE_AFTER_MS = DAY_MS * 30;
+const DELETE_AFTER_MS = DAY_MS * 60;
+
 function sanitizeCachePath(cachePath) {
     return cachePath.replace(INVALID_FILENAME_CHARS, "_");
 }
@@ -65,18 +62,63 @@ class CacheManager {
         this.saveMetadata();
     }
 
+    getTimestamp(safePath, filePath) {
+        const cacheInfo = this.metadata[safePath];
+        if (cacheInfo) {
+            return cacheInfo.lastAccessed || cacheInfo.created || 0;
+        }
+        try {
+            return fs.statSync(filePath).mtimeMs;
+        } catch {
+            return 0;
+        }
+    }
+
+    removeEntry(safePath) {
+        let removed = false;
+        try {
+            fs.unlinkSync(path.join(this.cacheDir, safePath));
+            removed = true;
+        } catch (error) {
+            if (error.code !== "ENOENT") {
+                console.error(`删除缓存文件失败 ${safePath}:`, error);
+            }
+        }
+        if (this.metadata[safePath]) {
+            delete this.metadata[safePath];
+            removed = true;
+        }
+        return removed;
+    }
+
     async getCache(cachePath) {
         const safePath = sanitizeCachePath(cachePath);
         const filePath = path.join(this.cacheDir, safePath);
         try {
             if (fs.existsSync(filePath)) {
+                const now = Date.now();
+                const timestamp = this.getTimestamp(safePath, filePath);
+
+                if (timestamp < now - DELETE_AFTER_MS) {
+                    this.removeEntry(safePath);
+                    this.saveMetadata();
+                    return { data: null, expired: true, deleted: true };
+                }
+
+                if (timestamp < now - STALE_AFTER_MS) {
+                    this.metadata[safePath] = this.metadata[safePath] || { created: timestamp };
+                    this.metadata[safePath].needsRefresh = true;
+                    this.saveMetadata();
+                    return { data: null, expired: true, deleted: false };
+                }
+
                 this.updateAccessTime(safePath);
-                return fs.readFileSync(filePath);
+                return { data: fs.readFileSync(filePath), expired: false };
             }
-            return null;
+            return { data: null, expired: false };
         } catch (error) {
             console.error("读取缓存文件失败:", error);
-            return null;
+            return { data: null, expired: false };
         }
     }
 
@@ -105,25 +147,26 @@ class CacheManager {
         try {
             if (!fs.existsSync(this.cacheDir)) return true;
 
-            const sevenDaysAgo = Date.now() - 1000 * 60 * 60 * 24 * 7; // 7 days
+            const now = Date.now();
             let cleaned = 0;
 
             for (const file of fs.readdirSync(this.cacheDir)) {
                 if (file === "cache_metadata.json") continue;
 
-                const cacheInfo = this.metadata[file];
-                if (!cacheInfo || cacheInfo.lastAccessed < sevenDaysAgo) {
-                    try {
-                        fs.unlinkSync(path.join(this.cacheDir, file));
-                        delete this.metadata[file];
-                        cleaned++;
-                    } catch (err) {
-                        console.error(`删除缓存文件失败 ${file}:`, err);
-                    }
+                const filePath = path.join(this.cacheDir, file);
+                const timestamp = this.getTimestamp(file, filePath);
+
+                if (timestamp < now - DELETE_AFTER_MS) {
+                    if (this.removeEntry(file)) cleaned++;
+                } else if (timestamp < now - STALE_AFTER_MS) {
+                    this.metadata[file] = this.metadata[file] || { created: timestamp };
+                    this.metadata[file].needsRefresh = true;
+                } else if (this.metadata[file]) {
+                    delete this.metadata[file].needsRefresh;
                 }
             }
 
-            if (cleaned) this.saveMetadata();
+            this.saveMetadata();
             cleaned && console.log(`已清理 ${cleaned} 个过期缓存文件。`);
             return true;
         } catch (error) {
@@ -153,9 +196,11 @@ class CacheManager {
         try {
             if (fs.existsSync(this.cacheDir)) {
                 fs.rmSync(this.cacheDir, { recursive: true, force: true });
-                this.metadata = {};
-                this.saveMetadata();
             }
+            // 目录被删掉了，写元数据前得先把它建回来，否则 ENOENT
+            this.ensureCacheDirExists();
+            this.metadata = {};
+            this.saveMetadata();
             return true;
         } catch (error) {
             console.error("清空缓存失败:", error);

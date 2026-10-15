@@ -290,7 +290,7 @@ async function loadLastPlayedSong() {
         if (window.electronAPI && window.electronAPI.getConfig) {
             const lastSongId = await window.electronAPI.getConfig("lastPlayedSongId", null);
             if (lastSongId) {
-                await playSong(lastSongId, false);
+                await playSongl(lastSongId, false);
             } else {
                 console.log("没有上次播放的歌曲记录");
             }
